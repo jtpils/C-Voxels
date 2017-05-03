@@ -4,7 +4,6 @@
 #include "c_voxels.h"
 #include "uthash.h"
 #include "pyconfig.h"
-#include "fifo_q.h"
 
 
 //=====================================================================

@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.6)
 project(C_Voxels)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(Python_ADDITIONAL_VERSIONS 3.4)
+set(Python_ADDITIONAL_VERSIONS 2.7)
 
 
 
@@ -38,18 +38,19 @@ if (UNIX)
 ENDIF()
 
 if(WIN32)
-    MESSAGE("HEYYYY")
+	#set(CMAKE_SUPPRESS_REGENERATION true)
     find_package(PythonLibs REQUIRED)
-    add_library(parsers SHARED ${SOURCE_FILES})
     include_directories(${PYTHON_INCLUDE_DIRS} ${NUMPY_INCLUDES})
     target_link_libraries(C_Voxels ${PYTHON_LIBRARIES})
+
+	MESSAGE(STATUS ${PYTHON_INCLUDE_DIRS})
+	MESSAGE(STATUS ${PYTHON_LIBRARIES})
 
 
     #set(PYTHON_INCLUDE_DIR C:\\Python27\\include)
     #set(PYTHON_LIBRARY C:\\Python27\\libs)
     #include_directories(${PYTHON_INCLUDE_DIR} ${NUMPY_INCLUDES})
     #link_libraries(C_Voxels ${PYTHON_LIBRARY} ${NUMPY_LIBRARIES})
-   # MESSAGE(FATAL_ERROR "${PYTHON_INCLUDE_DIR}")
 ENDIF()
 
 
