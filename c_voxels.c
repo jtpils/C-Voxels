@@ -12,6 +12,7 @@
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     PyArrayObject *py_coords; // The numpy matrix of coordinates
     PyObject *py_classification, *py_class_black_list, *py_coords_min;
+	
 
     double **c_coords, *c_coords_min; // The C matrix of coordinates
     int *c_classification, num_black_listed, num_points;
@@ -29,25 +30,31 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-
-    num_points = PyObject_Length(py_classification);
+	num_points = py_coords->dimensions[0];
     num_black_listed = PyObject_Length(py_class_black_list);
 
+	// Convert classification to a contiguous array that can be used in C
+	PyArrayObject *classification_array;
+	classification_array = (PyArrayObject *) PyArray_ContiguousFromObject(py_classification, PyArray_INT, 0, num_points);
+
+    
+	if (classification_array->nd != 1) {
+		PySys_WriteStdout("Classification param is not a 1D list/Array\n");
+	}
+	if (classification_array->dimensions[0] != num_points) {
+		PySys_WriteStdout("Error: Classification is not the same length as the number of points");
+	}
+	
 	int *c_class_black_list = NULL;
-    if (num_black_listed > 0) {
-        c_class_black_list = py_int_list_to_c_array(py_class_black_list);
-    }
+	if (num_black_listed > 0) {
+		c_class_black_list = py_int_list_to_c_array(py_class_black_list);
+	}
 
-    // int e = PyArray_PyIntAsInt(py_classification);
-
-    c_classification = py_int_list_to_c_array(py_classification);
+	c_classification = classification_array->data;
     c_coords_min = py_double_list_to_c_array(py_coords_min);
     c_coords = pymatrix_to_Carrayptrs(py_coords);
 
-	int rows = py_coords->dimensions[0];
-	int cols = py_coords->dimensions[1];
-
-
+	
     struct Voxel *p, *tmp, *voxels = NULL;
     voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
 
@@ -79,7 +86,6 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 
     free_Carrayptrs(c_coords);
-    free(c_classification);
     free(c_coords_min);
 	free(c_class_black_list);
 
@@ -244,11 +250,12 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 static struct Voxel *compute_voxels(double **coords, int *classification, int *black_list, double *coords_min,
 									double k, int num_points, int num_black_list) {
 
-    // PySys_WriteStdout("C Voxelization\n");
-    // PySys_WriteStdout("mins are: %f %f %f\n", coords_min[0],coords_min[1], coords_min[2]);
+    //PySys_WriteStdout("C Voxelization\n");
+    //PySys_WriteStdout("mins are: %f %f %f\n", coords_min[0],coords_min[1], coords_min[2]);
     struct Voxel *p = NULL, *voxels = NULL;
 
     for (int i = 0; i < num_points; ++i) {
+		//PySys_WriteStdout("%d / %d\n", i, num_points);
         // TODO: change blacklist array to 0(1) acces to check is blacklisted
         // -> hash table or a precreated array of 0|1
 
@@ -285,6 +292,7 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
 
         }
     }
+	//PySys_WriteStdout("C Voxelization END\n");
     return voxels;
 }
 
