@@ -2,8 +2,11 @@
 #include <numpy/arrayobject.h>
 
 #include "c_voxels.h"
+#include "conversion_utilities.h"
 #include "uthash.h"
-#include "pyconfig.h"
+
+//#include "pyconfig.h"
+
 
 
 //=====================================================================
@@ -52,40 +55,40 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	c_classification = classification_array->data;
     c_coords_min = py_double_list_to_c_array(py_coords_min);
-    c_coords = pymatrix_to_Carrayptrs(py_coords);
+    c_coords = py_matrix_to_c_array(py_coords);
 
 	
-    struct Voxel *p, *tmp, *voxels = NULL;
+    struct Voxel *current_voxel, *tmp, *voxels = NULL;
     voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
 
     int voxel_count = 0;
     int point_count = 0, point_count2 = 0;
-    struct Point *elt, *tmp_elt;
+    struct Point *current_point, *tmp_point;
     PyObject *voxels_dict = PyDict_New();
 
-    HASH_ITER(hh, voxels, p, tmp) {
+    HASH_ITER(hh, voxels, current_voxel, tmp) {
         int index = 0;
-        PyObject *list_of_points = PyList_New(p->num_points);
-        PyObject *key = Py_BuildValue("(i,i,i)", p->coord.x, p->coord.y, p->coord.z);
+        PyObject *list_of_points = PyList_New(current_voxel->num_points);
+        PyObject *key = Py_BuildValue("(i,i,i)", current_voxel->coord.x, current_voxel->coord.y, current_voxel->coord.z);
 
-        LL_FOREACH_SAFE(p->points, elt, tmp_elt) {
-            PyList_SetItem(list_of_points, index, Py_BuildValue("i", elt->index));
-            LL_DELETE(p->points, elt);
-            free(elt);
+        LL_FOREACH_SAFE(current_voxel->points, current_point, tmp_point) {
+            PyList_SetItem(list_of_points, index, Py_BuildValue("i", current_point->index));
+            LL_DELETE(current_voxel->points, current_point);
+            free(current_point);
             ++point_count;
             ++index;
         }
         PyDict_SetItem(voxels_dict, key, list_of_points);
-        point_count2 += p->num_points;
+        point_count2 += current_voxel->num_points;
 
 
-        HASH_DEL(voxels, p);
-        free(p);
+        HASH_DEL(voxels, current_voxel);
+        free(current_voxel);
         ++voxel_count;
     }
 
 
-    free_Carrayptrs(c_coords);
+    free_c_array(c_coords);
     free(c_coords_min);
 	free(c_class_black_list);
 
@@ -192,7 +195,6 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
     struct Voxel *p = NULL, *voxels = NULL;
 
     for (int i = 0; i < num_points; ++i) {
-		//PySys_WriteStdout("%d / %d\n", i, num_points);
         // TODO: change blacklist array to 0(1) acces to check is blacklisted
         // -> hash table or a precreated array of 0|1
 
@@ -203,7 +205,7 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
         struct Voxel *v = new_voxel(c, i);
 
 		if (!v) {
-			PySys_WriteStderr("Error allocation memory for a voxel (line: %s)\n", __LINE__);
+			return PyErr_NoMemory();
 		}
 
         HASH_FIND(hh, voxels, &(v->coord), sizeof(struct Coordinates), p);
@@ -211,7 +213,7 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
 		struct Point *pp = new_point(i);
 
 		if (!pp) {
-			PySys_WriteStderr("Error allocating memory for a point (line: %s)\n", __LINE__);
+			return PyErr_NoMemory();
 		}
 
         if (!p) { // Voxel not found in hash, add it
@@ -268,129 +270,6 @@ PyObject *coordinates_to_py_tuple(struct Coordinates c) {
 	return Py_BuildValue("(i,i,i)", c.x, c.y, c.z);
 }
 
-//=====================================================================
-// Utility functions
-//=====================================================================
-
-int *py_int_list_to_c_array(PyObject *list) {
-    int *array;
-    int array_size;
-    PyObject *item;
-
-    array_size = PyObject_Length(list);
-    array = malloc(array_size * sizeof * array);
-
-    if (array == NULL) {
-       PySys_WriteStderr("Error: Couldn't malloc int array (%s)\n", __FUNCTION__);
-        return NULL;
-    }
-
-    for (int i = 0; i < array_size; i++) {
-        item = PySequence_GetItem(list, i);
-
-        if (item == NULL) {
-            PyErr_SetString(PyExc_TypeError, "item not accessible");
-            free(array);
-            return NULL;
-        }
-
-        if (!PyInt_Check(item)) {
-            free(array);  /* free up the memory before leaving */
-            PyErr_SetString(PyExc_TypeError, "expected sequence of integers");
-            return NULL;
-        }
-        /* assign to the C array */
-        array[i] = PyInt_AsLong(item);
-    }
-    return array;
-}
-
-double *py_double_list_to_c_array(PyObject *list) {
-    double *array;
-    int array_size;
-    PyObject *item;
-
-    array_size = PyObject_Length(list);
-    array = malloc(array_size * sizeof * array);
-
-    if (array == NULL) {
-        fprintf(stderr, "Error: Couldn't malloc int array\n");
-        return NULL;
-    }
-
-    for (int i = 0; i < array_size; i++) {
-        item = PySequence_GetItem(list, i);
-
-        if (item == NULL) {
-            PyErr_SetString(PyExc_TypeError, "item not accessible");
-            free(array);
-            return NULL;
-        }
-
-        if (!PyFloat_Check(item)) {
-            free(array);  /* free up the memory before leaving */
-            PyErr_SetString(PyExc_TypeError, "expected sequence of Float");
-            return NULL;
-        }
-        /* assign to the C array */
-        array[i] = PyFloat_AsDouble(item);
-    }
-    return array;
-}
-
-double **py_matrix_to_c_matrix(PyArrayObject *py_matrix) {
-    	int rows = py_matrix->dimensions[0];
-	    int cols = py_matrix->dimensions[1];
-
-        double **c_matrix = NULL;
-        *c_matrix = malloc(rows * sizeof * c_matrix);
-
-        if (c_matrix == NULL) {
-            fprintf(stderr, "Error: Allocation of memory for double array failed.");
-            exit(0);
-        }
-        double *values = (double*) py_matrix->data;
-        for (int i = 0; i < rows; ++i) {
-            c_matrix[i] = values+i*cols;
-        }
-
-}
-
-double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin)  {
-	double **c, *a;
-	int i,n,m;
-
-	n=arrayin->dimensions[0];
-	m=arrayin->dimensions[1];
-	c=ptrvector(n);
-	a=(double *) arrayin->data;  /* pointer to arrayin data as double */
-	for ( i=0; i<n; i++)  {
-		c[i]=a+i*m;  }
-	return c;
-}
-/* ==== Allocate a double *vector (vec of pointers) ======================
-    Memory is Allocated!  See void free_Carray(double ** )                  */
-double **ptrvector(long n)  {
-	double **v;
-	v=(double **)malloc((size_t) (n*sizeof(double)));
-	if (!v)   {
-		printf("In **ptrvector. Allocation of memory for double array failed.");
-		exit(0);  }
-	return v;
-}
-/* ==== Free a double *vector (vec of pointers) ========================== */
-void free_Carrayptrs(double **v)  {
-	free((char*) v);
-}
-
-
-int not_doublematrix(PyArrayObject *mat)  {
-	if (mat->descr->type_num != NPY_DOUBLE || mat->nd != 2)  {
-		PyErr_SetString(PyExc_ValueError,
-			"In not_doublematrix: array must be of type Float and 2 dimensional (n x m).");
-		return 1;  }
-	return 0;
-}
 
 //=====================================================================
 // Python API function to register module

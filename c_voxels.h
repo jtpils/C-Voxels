@@ -69,12 +69,4 @@ struct Voxel *new_voxel();
 struct Point *new_point(int index);
 struct Coordinates new_coordinates_from_py_tuple(PyObject *tuple);
 PyObject *coordinates_to_py_tuple(struct Coordinates c);
-
-double **py_matrix_to_c_matrix(PyArrayObject *py_matrix);
-double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin);
-double **ptrvector(long n);
-int *py_int_list_to_c_array(PyObject *list);
-double *py_double_list_to_c_array(PyObject *list);
-void free_Carrayptrs(double **v);
-int  not_doublematrix(PyArrayObject *mat);
 #endif
