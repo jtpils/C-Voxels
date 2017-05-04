@@ -92,9 +92,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     return voxels_dict;
 }
 
-PyObject *coordinates_to_py_tuple(struct Coordinates c) {
-    return Py_BuildValue("(i,i,i)", c.x, c.y, c.z);
-}
+
 
 static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 	PyObject *py_voxels, *py_keys;
@@ -123,17 +121,8 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
     // Caring only about the keys, not the values
 	for (int i = 0; i < num_voxels; ++i) {
 		PyObject *key = PyList_GetItem(py_keys, i);
-        struct Coordinates c = {
-            PyInt_AsLong(PyTuple_GetItem(key, 0)),
-		    PyInt_AsLong(PyTuple_GetItem(key, 1)),
-		    PyInt_AsLong(PyTuple_GetItem(key, 2))
-        };
-        v = (struct Voxel*) malloc(sizeof(struct Voxel));
-        memset(v, 0, sizeof(struct Voxel));
-        v->coord = c;
-        v->points = NULL;
-        v->num_points = 0;
-        v->index = i;
+		struct Coordinates c = new_coordinates_from_py_tuple(key);
+		v = new_voxel(c, i);
         HASH_ADD(hh, c_voxels, coord, sizeof(struct Coordinates), v);
 	}
 
@@ -154,7 +143,6 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
             HASH_FIND(hh, c_voxels, &(potential_neighbours[k]), sizeof(struct Coordinates), p);
 
             if (p) {
-                // current_list = PyList_GetItem(neighbours, voxel->index);
                 PyList_Append(neighbours_list, coordinates_to_py_tuple(potential_neighbours[k]));
             }
         }
@@ -171,52 +159,6 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
     return neighbours;
 }
 
-static PyObject *flood_fill(PyObject *self, PyObject *args) {
-    PyObject *py_adjency_list;
-    struct Voxel *c_voxels = NULL, *v;
-
-	// Parse args from python call
-	if (!PyArg_ParseTuple(args, "O", &py_adjency_list))
-        return NULL;
-
-	// Check that we got the good argument
-	if (!PyList_Check(py_adjency_list)) {
-		PyErr_SetString(PyExc_TypeError, "Expected a List");
-	}
-
-    int num_nodes = PyList_Size(py_adjency_list);
-    int *visited = calloc(num_nodes, sizeof(int));
-
-
-    free(visited);
-}
-
-
-static PyObject* sum_coordinates(PyObject *self, PyObject *args) {
-    PyArrayObject *py_coords; // The numpy matrix of coordinates
-
-    double **c_coords; // The C matrix of coordinates
-
-    /* Parse tuples separately since args will differ between C fcns */
-	if (!PyArg_ParseTuple(args, "O!", &PyArray_Type, &py_coords))
-        return NULL;
-
-    c_coords = pymatrix_to_Carrayptrs(py_coords);
-	int rows = py_coords->dimensions[0];
-	int cols = py_coords->dimensions[1];
-
-    double sum = 0.0;
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            sum += c_coords[j][i];
-        }
-    }
-
-
-    free_Carrayptrs(c_coords);
-    return Py_BuildValue("(i,i, d)", rows, cols, sum); // Place holder
-}
-
 static PyObject* version(PyObject* self)
 {
     return Py_BuildValue("s", "Version 0.1");
@@ -228,9 +170,7 @@ static PyObject* version(PyObject* self)
 
 int is_black_listed(int code, int *black_list, int num_black_list) {
     for (int i = 0; i < num_black_list; ++i) {
-		//PySys_WriteStdout("The code: %d vs %d ->", code, )
         if (code == black_list[i]) {
-
             return 1;
         }
     }
@@ -242,7 +182,6 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
     voxel_coords.x = (int)(((x - coords_min[0])) / k);
     voxel_coords.y = (int)(((y - coords_min[1])) / k);
     voxel_coords.z = (int)(((z - coords_min[2])) / k);
-    // PySys_WriteStdout("COORDS are: %d %d %d\n", voxel_coords.x, voxel_coords.y,voxel_coords.z);
     return voxel_coords;
 }
 
@@ -250,8 +189,6 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 static struct Voxel *compute_voxels(double **coords, int *classification, int *black_list, double *coords_min,
 									double k, int num_points, int num_black_list) {
 
-    //PySys_WriteStdout("C Voxelization\n");
-    //PySys_WriteStdout("mins are: %f %f %f\n", coords_min[0],coords_min[1], coords_min[2]);
     struct Voxel *p = NULL, *voxels = NULL;
 
     for (int i = 0; i < num_points; ++i) {
@@ -263,22 +200,19 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
             continue;
         }
         struct Coordinates c = get_voxel_coordinates(coords[i][0], coords[i][1], coords[i][2], k, coords_min);
-        struct Voxel *v;
+        struct Voxel *v = new_voxel(c, i);
 
-        v = (struct Voxel*) malloc(sizeof(struct Voxel));
-        memset(v, 0, sizeof(struct Voxel));
-        v->coord = c;
-        v->points = NULL;
-        v->num_points = 0;
-        v->index = i;
-
-        double *hey = coords[i];
+		if (!v) {
+			PySys_WriteStderr("Error allocation memory for a voxel (line: %s)\n", __LINE__);
+		}
 
         HASH_FIND(hh, voxels, &(v->coord), sizeof(struct Coordinates), p);
 
-        struct Point *pp = (struct Point*) malloc(sizeof(struct Point));
-        pp->next = NULL;
-        pp->index = i;
+		struct Point *pp = new_point(i);
+
+		if (!pp) {
+			PySys_WriteStderr("Error allocating memory for a point (line: %s)\n", __LINE__);
+		}
 
         if (!p) { // Voxel not found in hash, add it
             HASH_ADD(hh, voxels, coord, sizeof(struct Coordinates), v);
@@ -286,16 +220,53 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
             v->num_points += 1;
         }
         else {
-            free(v); //Voxel already exist, delete this one
+            free(v); //Voxel already exist, delete the one we just created
             LL_PREPEND(p->points, pp);
             p->num_points += 1;
 
         }
     }
-	//PySys_WriteStdout("C Voxelization END\n");
     return voxels;
 }
 
+//=====================================================================
+// Other things
+//=====================================================================
+struct Voxel *new_voxel(struct Coordinates coords, int index) {
+	struct Voxel *v = (struct Voxel*) malloc(sizeof(struct Voxel));
+	
+	if (v) {
+		memset(v, 0, sizeof(struct Voxel));
+		v->coord = coords;
+		v->points = NULL;
+		v->num_points = 0;
+		v->index = index;
+	}
+	return v;
+}
+
+struct Point *new_point(int index) {
+	struct Point *point = (struct Point*) malloc(sizeof(struct Point));
+
+	if (point) {
+		point->next = NULL;
+		point->index = index;
+	}
+	return point;
+}
+
+struct Coordinates new_coordinates_from_py_tuple(PyObject *tuple) {
+	struct Coordinates c = {
+		PyInt_AsLong(PyTuple_GetItem(tuple, 0)),
+		PyInt_AsLong(PyTuple_GetItem(tuple, 1)),
+		PyInt_AsLong(PyTuple_GetItem(tuple, 2))
+	};
+	return c;
+}
+
+PyObject *coordinates_to_py_tuple(struct Coordinates c) {
+	return Py_BuildValue("(i,i,i)", c.x, c.y, c.z);
+}
 
 //=====================================================================
 // Utility functions
@@ -310,7 +281,7 @@ int *py_int_list_to_c_array(PyObject *list) {
     array = malloc(array_size * sizeof * array);
 
     if (array == NULL) {
-        fprintf(stderr, "Error: Couldn't malloc int array\n");
+       PySys_WriteStderr("Error: Couldn't malloc int array (%s)\n", __FUNCTION__);
         return NULL;
     }
 
@@ -413,7 +384,7 @@ void free_Carrayptrs(double **v)  {
 }
 
 
-int  not_doublematrix(PyArrayObject *mat)  {
+int not_doublematrix(PyArrayObject *mat)  {
 	if (mat->descr->type_num != NPY_DOUBLE || mat->nd != 2)  {
 		PyErr_SetString(PyExc_ValueError,
 			"In not_doublematrix: array must be of type Float and 2 dimensional (n x m).");
@@ -427,7 +398,6 @@ int  not_doublematrix(PyArrayObject *mat)  {
 
 static PyMethodDef cvoxel_methods[] = {
     {"voxelize_cloud", voxelize_cloud, METH_VARARGS, "Voxelize the cloud"},
-    {"sum_coordinates", sum_coordinates, METH_VARARGS, "Sum coordinates"},
     {"version", (PyCFunction)version, METH_NOARGS, "Returns de module version"},
     {"neighbours_of_voxels", neighbours_of_voxels, METH_VARARGS, "ayy lmao"},
     {NULL, NULL, 0, NULL}

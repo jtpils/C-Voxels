@@ -30,21 +30,6 @@ struct black_list {
 	UT_hash_handle hh;
 };
 
-struct fifo_element {
-    int node_index;
-
-    struct fifo_element *prev;
-    struct fifo_element *next;
-};
-
-struct fifo {
-    struct fifo_element *head;
-    struct fifo_element *tail;
-    unsigned int size;
-};
-
-
-
 
 
 /*
@@ -64,8 +49,6 @@ struct fifo {
  *  - values : list of index of the points contained in the voxel
  */
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args);
-
-static PyObject* sum_coordinates(PyObject *self, PyObject *args);
 static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args);
 
 
@@ -79,6 +62,13 @@ static PyObject *version(PyObject *self);
 static struct Voxel *compute_voxels(double **coords, int *classification, int *black_list, double *coords_min,
 									double k, int num_points, int num_black_list);
 static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, double *coords_min);
+
+
+
+struct Voxel *new_voxel();
+struct Point *new_point(int index);
+struct Coordinates new_coordinates_from_py_tuple(PyObject *tuple);
+PyObject *coordinates_to_py_tuple(struct Coordinates c);
 
 double **py_matrix_to_c_matrix(PyArrayObject *py_matrix);
 double **pymatrix_to_Carrayptrs(PyArrayObject *arrayin);

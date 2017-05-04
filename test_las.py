@@ -1,5 +1,5 @@
 import laspy
-from PLAnalysis.common import voxel, extract
+from PLAnalysis.common import pyvoxels, extract
 from PLAnalysis.common.cloudtypes import LasCloud
 
 import sys
@@ -33,7 +33,7 @@ def main():
 
 
     print "Start py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    voxels = voxel.voxelize_cloud(cloud, k, class_blacklist=[0])
+    voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=[0])
     print "End py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start py-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
