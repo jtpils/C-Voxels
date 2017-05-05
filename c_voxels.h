@@ -31,8 +31,8 @@ struct black_list {
 };
 
 
-
-/*
+//TODO: Make the use of a numpy.matrix non mandatory
+/* 
  * Python callable function that calls the C function "compute_voxels"
  * Does the conversion between Python args and C types, and vise-versa
  *

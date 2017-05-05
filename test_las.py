@@ -24,7 +24,7 @@ def main():
     print len(classification)
 
     print "Start c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    c_voxels = cvoxels.voxelize_cloud(np.matrix(coords), classification, [0], mins, k)
+    c_voxels = cvoxels.voxelize_cloud(np.matrix(coords), classification, [], mins, k)
     print "End c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -33,7 +33,7 @@ def main():
 
 
     print "Start py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=[0])
+    voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=[])
     print "End py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start py-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -58,6 +58,7 @@ def main():
                 if point not in s:
                     missing_points += 1
 
+    print "c_voxels len: {},pyvoxels len: {}".format(len(c_voxels), len(voxels))
     print "{} missing voxels, {} missing points".format(missing_voxels, missing_points)
 
 
