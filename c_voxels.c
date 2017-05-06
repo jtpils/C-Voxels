@@ -33,14 +33,13 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-	num_points = py_coords->dimensions[0];
-    num_black_listed = PyObject_Length(py_class_black_list);
+	num_points = (int) py_coords->dimensions[0];
+    num_black_listed = (int) PyObject_Length(py_class_black_list);
 
 	// Convert classification to a contiguous array that can be used in C
 	PyArrayObject *classification_array;
 	classification_array = (PyArrayObject *) PyArray_ContiguousFromObject(py_classification, PyArray_INT, 0, num_points);
 
-    
 	if (classification_array->nd != 1) {
 		PySys_WriteStdout("Classification param is not a 1D list/Array\n");
 	}
@@ -53,13 +52,17 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 		c_class_black_list = py_int_list_to_c_array(py_class_black_list);
 	}
 
-	c_classification = classification_array->data;
+	c_classification = (int*) classification_array->data;
     c_coords_min = py_double_list_to_c_array(py_coords_min);
     c_coords = py_matrix_to_c_array(py_coords);
 
 	
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
     voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
+
+	if (!voxels) {
+		return PyErr_NoMemory();
+	}
 
     int voxel_count = 0;
     int point_count = 0, point_count2 = 0;
@@ -98,7 +101,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 
 static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
-	PyObject *py_voxels, *py_keys;
+	PyObject *py_keys;
     struct Voxel *c_voxels = NULL, *v;
 
 	// Parse args from python call
@@ -110,7 +113,7 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 		PyErr_SetString(PyExc_TypeError, "Expected a List");
 	}
 
-	int num_voxels = PyList_Size(py_keys);
+	int num_voxels = (int) PyList_Size(py_keys);
 
     if(!PySequence_Check(py_keys)) {
         PyErr_SetString(PyExc_TypeError, "Keys are not a sequence");
@@ -131,7 +134,6 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 
     // Now loop over the voxels to find their neighbours
     struct Voxel *voxel, *p;
-    PyObject *current_list;
     for(voxel = c_voxels; voxel != NULL; voxel = voxel->hh.next) {
 
         struct Coordinates top = voxel->coord, bot = voxel->coord, left = voxel->coord,
@@ -205,7 +207,7 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
         struct Voxel *v = new_voxel(c, i);
 
 		if (!v) {
-			return PyErr_NoMemory();
+			return NULL;
 		}
 
         HASH_FIND(hh, voxels, &(v->coord), sizeof(struct Coordinates), p);
@@ -213,7 +215,7 @@ static struct Voxel *compute_voxels(double **coords, int *classification, int *b
 		struct Point *pp = new_point(i);
 
 		if (!pp) {
-			return PyErr_NoMemory();
+			return NULL;
 		}
 
         if (!p) { // Voxel not found in hash, add it
