@@ -18,7 +18,8 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 	
 
     double **c_coords, *c_coords_min; // The C matrix of coordinates
-    int *c_classification, num_black_listed, num_points;
+	int *c_classification;
+	unsigned int num_points, num_black_listed;
     double k;
 
     // Parse args from python call
@@ -33,8 +34,8 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-	num_points = (int) py_coords->dimensions[0];
-    num_black_listed = (int) PyObject_Length(py_class_black_list);
+	num_points = (unsigned int) py_coords->dimensions[0];
+    num_black_listed = (unsigned int) PyObject_Length(py_class_black_list);
 
 	// Convert classification to a contiguous array that can be used in C
 	PyArrayObject *classification_array;
@@ -91,6 +92,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     }
 
 
+	Py_DECREF((PyObject*)classification_array);
     free_c_array(c_coords);
     free(c_coords_min);
 	free(c_class_black_list);

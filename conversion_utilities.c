@@ -2,17 +2,17 @@
 
 int *py_int_list_to_c_array(PyObject *list) {
 	int *array;
-	int array_size;
+	Py_ssize_t array_size;
 	PyObject *item;
 
 	array_size = PyObject_Length(list);
 	array = malloc(array_size * sizeof * array);
 
-	if (array == NULL) {
-		return PyErr_NoMemory();
+	if (!array) {
+		return NULL;
 	}
 
-	for (int i = 0; i < array_size; i++) {
+	for (Py_ssize_t i = 0; i < array_size; i++) {
 		item = PySequence_GetItem(list, i);
 
 		if (item == NULL) {
@@ -22,7 +22,7 @@ int *py_int_list_to_c_array(PyObject *list) {
 		}
 
 		if (!PyInt_Check(item)) {
-			free(array);  /* free up the memory before leaving */
+			free(array);  /* free up the memory before leaving */ 
 			PyErr_SetString(PyExc_TypeError, "expected sequence of integers");
 			return NULL;
 		}
@@ -34,17 +34,17 @@ int *py_int_list_to_c_array(PyObject *list) {
 
 double *py_double_list_to_c_array(PyObject *list) {
 	double *array;
-	int array_size;
+	Py_ssize_t array_size;
 	PyObject *item;
 
 	array_size = PyObject_Length(list);
 	array = malloc(array_size * sizeof * array);
 
-	if (array == NULL) {
-		return PyErr_NoMemory();
+	if (!array) {
+		return NULL;
 	}
 
-	for (int i = 0; i < array_size; i++) {
+	for (Py_ssize_t i = 0; i < array_size; ++i) {
 		item = PySequence_GetItem(list, i);
 
 		if (item == NULL) {
@@ -72,8 +72,8 @@ double **py_matrix_to_c_array(PyArrayObject *arrayin) {
 	double **c, *a;
 	int i, n, m;
 
-	n = arrayin->dimensions[0];
-	m = arrayin->dimensions[1];
+	n = (int*) arrayin->dimensions[0];
+	m = (int*) arrayin->dimensions[1];
 	c = ptrvector(n);
 	a = (double *)arrayin->data;  /* pointer to arrayin data as double */
 	for (i = 0; i<n; i++) {
