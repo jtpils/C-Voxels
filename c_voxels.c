@@ -39,6 +39,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	double **c_coords = py_2d_array_to_c_2d_array(py_coords);
 	if (c_coords == NULL) {
+		free_2d_array(c_coords, num_points);
 		return PyErr_NoMemory();
 	}
 
@@ -65,11 +66,13 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
 
 	if (!voxels) {
+		Py_DECREF((PyObject*) classification_array);
+		free(c_coords_min);
+		free(c_class_black_list);
+		free_2d_array(c_coords, num_points);
 		return PyErr_NoMemory();
 	}
 
-    int voxel_count = 0;
-    int point_count = 0, point_count2 = 0;
     struct Point *current_point, *tmp_point;
     PyObject *voxels_dict = PyDict_New();
 
@@ -82,25 +85,21 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
             PyList_SetItem(list_of_points, index, Py_BuildValue("i", current_point->index));
             LL_DELETE(current_voxel->points, current_point);
             free(current_point);
-            ++point_count;
             ++index;
         }
         PyDict_SetItem(voxels_dict, key, list_of_points);
-        point_count2 += current_voxel->num_points;
 
 
         HASH_DEL(voxels, current_voxel);
         free(current_voxel);
-        ++voxel_count;
     }
 
 
 	Py_DECREF((PyObject*)classification_array);
-    free_c_array(c_coords);
     free(c_coords_min);
 	free(c_class_black_list);
-
-    return voxels_dict;
+	free_2d_array(c_coords, num_points);
+	return voxels_dict;
 }
 
 

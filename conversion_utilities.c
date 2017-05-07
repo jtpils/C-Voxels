@@ -16,10 +16,7 @@ double ** py_2d_array_to_c_2d_array(PyArrayObject *array)
 		out[i] = malloc(sizeof(double*) * n_cols);
 
 		if (!out) { // Can't malloc anymore, free what was created 
-			for (unsigned int j = 0; j < i; ++j) {
-				free(out[j]);
-			}
-			free(out);
+			free_2d_array(out, i);
 			return NULL;
 		}
 
@@ -131,6 +128,13 @@ double **ptrvector(long n) {
 /* ==== Free a double *vector (vec of pointers) ========================== */
 void free_c_array(double **v) {
 	free((char*)v);
+}
+
+void free_2d_array(double **array, unsigned int n_rows) {
+	for (unsigned int i = 0; i < n_rows; ++i) {
+		free(array[i]);
+	}
+	free(array);
 }
 
 
