@@ -13,11 +13,11 @@
 // Functions callable from Python
 //=====================================================================
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
-    PyArrayObject *py_coords; // The numpy matrix of coordinates
+    PyArrayObject *py_coords;
     PyObject *py_classification, *py_class_black_list, *py_coords_min;
 	
 
-    double *c_coords_min; // The C matrix of coordinates
+    double *c_coords_min;
 	int *c_classification;
 	unsigned int num_points, num_black_listed;
     double k;
@@ -45,7 +45,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	// Convert classification to a contiguous array that can be used in C
 	PyArrayObject *classification_array;
-	classification_array = (PyArrayObject *) PyArray_ContiguousFromObject(py_classification, PyArray_INT, 0, num_points);
+	classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_DOUBLE, NPY_IN_ARRAY);
 
 	if (classification_array->nd != 1) {
 		PySys_WriteStdout("Classification param is not a 1D list/Array\n");
@@ -66,7 +66,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
 
 	if (!voxels) {
-		Py_DECREF((PyObject*) classification_array);
+		PyArray_XDECREF_ERR(classification_array);
 		free(c_coords_min);
 		free(c_class_black_list);
 		free_2d_array(c_coords, num_points);
@@ -95,7 +95,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     }
 
 
-	Py_DECREF((PyObject*)classification_array);
+	PyArray_XDECREF_ERR(classification_array);
     free(c_coords_min);
 	free(c_class_black_list);
 	free_2d_array(c_coords, num_points);
@@ -105,18 +105,19 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 
 static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
-	PyObject *py_keys;
+	PyObject *py_voxels, *py_keys;
     struct Voxel *c_voxels = NULL, *v;
 
 	// Parse args from python call
-	if (!PyArg_ParseTuple(args, "O", &py_keys))
+	if (!PyArg_ParseTuple(args, "O", &py_voxels))
         return NULL;
 
 	// Check that we got the good argument
-	if (!PyList_Check(py_keys)) {
-		PyErr_SetString(PyExc_TypeError, "Expected a List");
+	if (!PyDict_Check(py_voxels)) {
+		PyErr_SetString(PyExc_TypeError, "Expected a dict");
 	}
 
+	py_keys = PyDict_Keys(py_voxels);
 	int num_voxels = (int) PyList_Size(py_keys);
 
     if(!PySequence_Check(py_keys)) {

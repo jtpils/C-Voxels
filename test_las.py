@@ -25,7 +25,7 @@ def main():
     print "End c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    c_neigh = cvoxels.neighbours_of_voxels(c_voxels.keys())
+    c_neigh = cvoxels.neighbours_of_voxels(c_voxels)
     print "End c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
