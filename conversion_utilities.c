@@ -1,5 +1,36 @@
 #include "conversion_utilities.h"
 
+
+double ** py_2d_array_to_c_2d_array(PyArrayObject *array)
+{
+	
+	unsigned int n_rows = (unsigned int) array->dimensions[0];
+	unsigned int n_cols = (unsigned int) array->dimensions[1];
+
+	double **out = malloc(sizeof(double*) * n_rows);
+	if (!out) {
+		return NULL;
+	}
+
+	for (unsigned int i = 0; i < n_rows; ++i) {
+		out[i] = malloc(sizeof(double*) * n_cols);
+
+		if (!out) { // Can't malloc anymore, free what was created 
+			for (unsigned int j = 0; j < i; ++j) {
+				free(out[j]);
+			}
+			free(out);
+			return NULL;
+		}
+
+		for (unsigned int j = 0; j < n_cols; ++j) {
+			out[i][j] = *(double*)(array->data + i * array->strides[0] + j * array->strides[1]);
+		}
+	}
+	
+	return out;
+}
+
 int *py_int_list_to_c_array(PyObject *list) {
 	int *array;
 	Py_ssize_t array_size;
@@ -68,12 +99,12 @@ double *py_double_list_to_c_array(PyObject *list) {
 
 
 
-double **py_matrix_to_c_array(PyArrayObject *arrayin) {
+double **numpy_matrix_to_c_array(PyArrayObject *arrayin) {
 	double **c, *a;
 	int i, n, m;
 
-	n = (int*) arrayin->dimensions[0];
-	m = (int*) arrayin->dimensions[1];
+	n = (int) arrayin->dimensions[0];
+	m = (int) arrayin->dimensions[1];
 	c = ptrvector(n);
 	a = (double *)arrayin->data;  /* pointer to arrayin data as double */
 	for (i = 0; i<n; i++) {

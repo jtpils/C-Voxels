@@ -17,7 +17,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     PyObject *py_classification, *py_class_black_list, *py_coords_min;
 	
 
-    double **c_coords, *c_coords_min; // The C matrix of coordinates
+    double *c_coords_min; // The C matrix of coordinates
 	int *c_classification;
 	unsigned int num_points, num_black_listed;
     double k;
@@ -37,6 +37,11 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 	num_points = (unsigned int) py_coords->dimensions[0];
     num_black_listed = (unsigned int) PyObject_Length(py_class_black_list);
 
+	double **c_coords = py_2d_array_to_c_2d_array(py_coords);
+	if (c_coords == NULL) {
+		return PyErr_NoMemory();
+	}
+
 	// Convert classification to a contiguous array that can be used in C
 	PyArrayObject *classification_array;
 	classification_array = (PyArrayObject *) PyArray_ContiguousFromObject(py_classification, PyArray_INT, 0, num_points);
@@ -55,8 +60,6 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	c_classification = (int*) classification_array->data;
     c_coords_min = py_double_list_to_c_array(py_coords_min);
-    c_coords = py_matrix_to_c_array(py_coords);
-
 	
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
     voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
