@@ -14,17 +14,14 @@ def main():
     cloud = LasCloud(sys.argv[1])
     k = 0.2
 
-
     coords = cloud.coords
     classification = cloud.classification
     mins = cloud.bb_min
 
-    # classification = [int(x) for x in classification]
-
     print len(classification)
 
     print "Start c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    c_voxels = cvoxels.voxelize_cloud(np.matrix(coords), classification, [], mins, k)
+    c_voxels = cvoxels.voxelize_cloud(coords, classification, [], mins, k)
     print "End c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
