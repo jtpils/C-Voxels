@@ -11,6 +11,15 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 
 find_package(numpy)
+find_package(PythonLibs REQUIRED)
+
+if (PYTHONLIBS_FOUND)
+	MESSAGE(STATUS "Found Python")
+	MESSAGE(STATUS "PYTHON_INCLUDE_DIRS =  ${PYTHON_INCLUDE_DIRS}")
+	MESSAGE(STATUS "PYTHON_LIBRARIES    =  ${PYTHON_LIBRARIES}")
+else (PythonLibs_FOUND)
+	MESSAGE(FATAL_ERROR "Couldn't find Python")
+endif(PYTHONLIBS_FOUND)
 
 set(SOURCE_FILES
         c_voxels.c
@@ -22,38 +31,12 @@ set(SOURCE_FILES
 
 add_library(C_Voxels SHARED ${SOURCE_FILES})
 
-# Woaw ugly shit
-if (UNIX)
-    if (CYGWIN)
-        set(PYTHON_INCLUDE_DIR C:\\Python27\\include)
-        set(PYTHON_LIBRARY C:\\Python27\\libs)
-        include_directories(${PYTHON_INCLUDE_DIR})
-        link_libraries(C_Voxels, ${PYTHON_LIBRARY})
-    ENDIF()
-    find_package(PythonLibs)
-    IF(PYTHONLIBS_FOUND)
-        include_directories(${PYTHON_INCLUDE_DIRS})
-        link_libraries(C_Voxels, ${PYTHON_LIBRARIES})
-    ELSEIF(NOT PYTHONLIBS_FOUND)
-        MESSAGE(FATAL_ERROR "Unable to find correct Python version. Did you set PythonLibs?")
-    ENDIF(PYTHONLIBS_FOUND)
-ENDIF()
 
-if(WIN32)
-	#set(CMAKE_SUPPRESS_REGENERATION true)
-    find_package(PythonLibs REQUIRED)
-    include_directories(${PYTHON_INCLUDE_DIRS} ${NUMPY_INCLUDES})
-    target_link_libraries(C_Voxels ${PYTHON_LIBRARIES})
-
-	MESSAGE(STATUS ${PYTHON_INCLUDE_DIRS})
-	MESSAGE(STATUS ${PYTHON_LIBRARIES})
+include_directories(${PYTHON_INCLUDE_DIRS} ${NUMPY_INCLUDES})
+target_link_libraries(C_Voxels ${PYTHON_LIBRARIES})
 
 
-    #set(PYTHON_INCLUDE_DIR C:\\Python27\\include)
-    #set(PYTHON_LIBRARY C:\\Python27\\libs)
-    #include_directories(${PYTHON_INCLUDE_DIR} ${NUMPY_INCLUDES})
-    #link_libraries(C_Voxels ${PYTHON_LIBRARY} ${NUMPY_LIBRARIES})
-ENDIF()
+
 
 if(MSVC)
   # Force to always compile with W4
