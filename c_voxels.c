@@ -178,7 +178,7 @@ static PyObject* version(PyObject* self)
 // C functions
 //=====================================================================
 
-int is_black_listed(unsigned char code, int *black_list, int num_black_list) {
+int is_black_listed(unsigned char code, const int *black_list, int num_black_list) {
     for (int i = 0; i < num_black_list; ++i) {
         if ((int)code == black_list[i]) {
             return 1;
@@ -187,7 +187,7 @@ int is_black_listed(unsigned char code, int *black_list, int num_black_list) {
     return 0;
 }
 
-static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, double *coords_min) {
+static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, const double *coords_min) {
     struct Coordinates voxel_coords;
     voxel_coords.x = (int)(((x - coords_min[0])) / k);
     voxel_coords.y = (int)(((y - coords_min[1])) / k);
@@ -196,15 +196,12 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 }
 
 // TODO: Lets create a struct PointCloud !
-static struct Voxel *compute_voxels(double **coords, unsigned char * classification,
- int *black_list,
-
- double *coords_min,
+static struct Voxel *compute_voxels(const double ** coords, const unsigned char * classification, const int * black_list, const double * coords_min,
 									double k, unsigned int num_points, unsigned int num_black_list) {
 
     struct Voxel *p = NULL, *voxels = NULL;
 
-    for (int i = 0; i < num_points; ++i) {
+    for (unsigned int i = 0; i < num_points; ++i) {
         // TODO: change blacklist array to 0(1) acces to check is blacklisted
         // -> hash table or a precreated array of 0|1
 
