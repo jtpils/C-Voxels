@@ -31,13 +31,12 @@ struct black_list {
 };
 
 
-//TODO: Make the use of a numpy.matrix non mandatory
 /* 
  * Python callable function that calls the C function "compute_voxels"
  * Does the conversion between Python args and C types, and vise-versa
  *
  * Expected arguments:
- *  - points coordinates : numpy.matrix with size (num_points, 3)
+ *  - points coordinates : numpy.array with size (num_points, 3)
  *  - classification : a list of integers
  *  - class_blacklist : a list of integers which gives the classes that the
  * voxelization ignores
@@ -65,7 +64,7 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 
 
 
-struct Voxel *new_voxel();
+struct Voxel *new_voxel(struct Coordinates coords, int index);
 struct Point *new_point(int index);
 struct Coordinates new_coordinates_from_py_tuple(PyObject *tuple);
 PyObject *coordinates_to_py_tuple(struct Coordinates c);
