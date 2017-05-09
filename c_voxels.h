@@ -58,8 +58,9 @@ static PyObject *version(PyObject *self);
  *
  * returns a hash table (implemented in uthash)
  */
-static struct Voxel *compute_voxels(double **coords, int *classification, int *black_list, double *coords_min,
-									double k, int num_points, int num_black_list);
+static struct Voxel *compute_voxels(double **coords, unsigned char *classification,
+									int *black_list, double *coords_min,
+									double k, unsigned int num_points, unsigned int num_black_list);
 static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, double *coords_min);
 
 

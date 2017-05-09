@@ -18,7 +18,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 	
 
     double *c_coords_min;
-	int *c_classification;
+	unsigned char *c_classification;
 	unsigned int num_points, num_black_listed;
     double k;
 
@@ -45,7 +45,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	// Convert classification to a contiguous array that can be used in C
 	PyArrayObject *classification_array;
-	classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_DOUBLE, NPY_IN_ARRAY);
+	classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_UINT8, NPY_IN_ARRAY);
 
 	if (classification_array->nd != 1) {
 		PySys_WriteStdout("Classification param is not a 1D list/Array\n");
@@ -59,7 +59,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 		c_class_black_list = py_int_list_to_c_array(py_class_black_list);
 	}
 
-	c_classification = (int*) classification_array->data;
+	c_classification = (unsigned char*) classification_array->data;
     c_coords_min = py_double_list_to_c_array(py_coords_min);
 	
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
@@ -178,9 +178,9 @@ static PyObject* version(PyObject* self)
 // C functions
 //=====================================================================
 
-int is_black_listed(int code, int *black_list, int num_black_list) {
+int is_black_listed(unsigned char code, int *black_list, int num_black_list) {
     for (int i = 0; i < num_black_list; ++i) {
-        if (code == black_list[i]) {
+        if ((int)code == black_list[i]) {
             return 1;
         }
     }
@@ -196,8 +196,11 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 }
 
 // TODO: Lets create a struct PointCloud !
-static struct Voxel *compute_voxels(double **coords, int *classification, int *black_list, double *coords_min,
-									double k, int num_points, int num_black_list) {
+static struct Voxel *compute_voxels(double **coords, unsigned char * classification,
+ int *black_list,
+
+ double *coords_min,
+									double k, unsigned int num_points, unsigned int num_black_list) {
 
     struct Voxel *p = NULL, *voxels = NULL;
 
