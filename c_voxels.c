@@ -196,8 +196,8 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 }
 
 // TODO: Lets create a struct PointCloud !
-static struct Voxel *compute_voxels(const double ** coords, const unsigned char * classification, const int * black_list, const double * coords_min,
-									double k, unsigned int num_points, unsigned int num_black_list) {
+static struct Voxel *compute_voxels(const double ** coords, const unsigned char * classification, const int * black_list, 
+									const double * coords_min, double k, unsigned int num_points, unsigned int num_black_list) {
 
     struct Voxel *p = NULL, *voxels = NULL;
 
