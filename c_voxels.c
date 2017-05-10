@@ -19,7 +19,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
     double *c_coords_min;
 	unsigned char *c_classification;
-	unsigned int num_points, num_black_listed;
+	unsigned int num_points;
     double k;
 
     // Parse args from python call
@@ -35,7 +35,6 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     }
 
 	num_points = (unsigned int) py_coords->dimensions[0];
-    num_black_listed = (unsigned int) PyObject_Length(py_class_black_list);
 
 	double **c_coords = py_2d_array_to_c_2d_array(py_coords);
 	if (c_coords == NULL) {
@@ -61,7 +60,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     c_coords_min = py_double_list_to_c_array(py_coords_min);
 	
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
-    voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points);
+    voxels = compute_voxels((const double **)c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points);
 
 	if (!voxels) {
 		PyArray_XDECREF_ERR(classification_array);
@@ -145,7 +144,6 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 
         PyObject *neighbours_list = PyList_New(0);
         for (int k = 0; k < 6; ++k) {
-            PyObject *neighbour_key = coordinates_to_py_tuple(potential_neighbours[k]);
             HASH_FIND(hh, c_voxels, &(potential_neighbours[k]), sizeof(struct Coordinates), p);
 
             if (p) {
