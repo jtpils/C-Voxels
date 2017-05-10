@@ -4,6 +4,7 @@
 #include "c_voxels.h"
 #include "conversion_utilities.h"
 #include "uthash.h"
+#include <numpy/npy_math.h>
 
 //#include "pyconfig.h"
 
@@ -172,10 +173,11 @@ static PyObject* version(PyObject* self)
 // C functions
 //=====================================================================
 static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, const double *coords_min) {
-    struct Coordinates voxel_coords;
-    voxel_coords.x = (int)(((x - coords_min[0])) / k);
-    voxel_coords.y = (int)(((y - coords_min[1])) / k);
-    voxel_coords.z = (int)(((z - coords_min[2])) / k);
+	struct Coordinates voxel_coords = {
+		(int)(((x - coords_min[0])) / k),
+		(int)(((y - coords_min[1])) / k),
+		(int)(((z - coords_min[2])) / k),
+	};
     return voxel_coords;
 }
 
