@@ -21,7 +21,7 @@ def main():
     print len(classification)
 
     print "Start c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    c_voxels = cvoxels.voxelize_cloud(coords, classification, [], mins, k)
+    c_voxels = cvoxels.voxelize_cloud(coords, classification, [7], mins, k)
     print "End c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -30,7 +30,7 @@ def main():
 
 
     print "Start py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=[])
+    voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=[7])
     print "End py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start py-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

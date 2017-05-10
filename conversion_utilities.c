@@ -1,7 +1,7 @@
 #include "conversion_utilities.h"
 
 
-double ** py_2d_array_to_c_2d_array(PyArrayObject *array)
+double **py_2d_array_to_c_2d_array(PyArrayObject *array)
 {
 	
 	unsigned int n_rows = (unsigned int) array->dimensions[0];

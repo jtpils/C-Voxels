@@ -47,28 +47,25 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 	PyArrayObject *classification_array;
 	classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_UINT8, NPY_IN_ARRAY);
 
-	if (classification_array->nd != 1) {
-		PySys_WriteStdout("Classification param is not a 1D list/Array\n");
-	}
 	if (classification_array->dimensions[0] != num_points) {
 		PySys_WriteStdout("Error: Classification is not the same length as the number of points");
 	}
 	
-	int *c_class_black_list = NULL;
-	if (num_black_listed > 0) {
-		c_class_black_list = py_int_list_to_c_array(py_class_black_list);
+	int c_class_black_list[256] = { 0 };
+	for (Py_ssize_t i = 0; i < PyList_Size(py_class_black_list); ++i) {
+		int code = PyInt_AsLong(PyList_GetItem(py_class_black_list, i));
+		c_class_black_list[code] = 1;
 	}
 
 	c_classification = (unsigned char*) classification_array->data;
     c_coords_min = py_double_list_to_c_array(py_coords_min);
 	
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
-    voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points, num_black_listed);
+    voxels = compute_voxels(c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points);
 
 	if (!voxels) {
 		PyArray_XDECREF_ERR(classification_array);
 		free(c_coords_min);
-		free(c_class_black_list);
 		free_2d_array(c_coords, num_points);
 		return PyErr_NoMemory();
 	}
@@ -97,7 +94,6 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	PyArray_XDECREF_ERR(classification_array);
     free(c_coords_min);
-	free(c_class_black_list);
 	free_2d_array(c_coords, num_points);
 	return voxels_dict;
 }
@@ -128,7 +124,7 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
     PyObject *neighbours = PyDict_New();
 
 
-    // Buil the hash table of voxels
+    // Build the hash table of voxels
     // Caring only about the keys, not the values
 	for (int i = 0; i < num_voxels; ++i) {
 		PyObject *key = PyList_GetItem(py_keys, i);
@@ -177,16 +173,6 @@ static PyObject* version(PyObject* self)
 //=====================================================================
 // C functions
 //=====================================================================
-
-int is_black_listed(unsigned char code, const int *black_list, int num_black_list) {
-    for (int i = 0; i < num_black_list; ++i) {
-        if ((int)code == black_list[i]) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
 static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, const double *coords_min) {
     struct Coordinates voxel_coords;
     voxel_coords.x = (int)(((x - coords_min[0])) / k);
@@ -196,16 +182,14 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 }
 
 // TODO: Lets create a struct PointCloud !
-static struct Voxel *compute_voxels(const double ** coords, const unsigned char * classification, const int * black_list, 
-									const double * coords_min, double k, unsigned int num_points, unsigned int num_black_list) {
+static struct Voxel *compute_voxels(const double ** coords, const unsigned char * classification, const int black_list[256], 
+									const double * coords_min, double k, unsigned int num_points) {
 
     struct Voxel *p = NULL, *voxels = NULL;
 
     for (unsigned int i = 0; i < num_points; ++i) {
-        // TODO: change blacklist array to 0(1) acces to check is blacklisted
-        // -> hash table or a precreated array of 0|1
-
-        if (is_black_listed(classification[i], black_list, num_black_list)) {
+       
+        if (black_list[(int)classification[i]]) {
             continue;
         }
         struct Coordinates c = get_voxel_coordinates(coords[i][0], coords[i][1], coords[i][2], k, coords_min);
