@@ -42,8 +42,11 @@ struct Voxel {
  *  - values : list of index of the points contained in the voxel
  */
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args);
-static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args);
+static PyObject* neighbours_of_voxels(PyObject *self, PyObject *args);
 
+static PyObject* project_to_3d(PyObject *self, PyObject *args);
+
+static PyObject* labelize_voxels(PyObject *self, PyObject *args);
 
 static PyObject *version(PyObject *self);
 
@@ -61,6 +64,7 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 
 
 struct Voxel *new_voxel(struct Coordinates coords, int index);
+struct Voxel new_voxel_stack(struct Coordinates coords, int index);
 struct Point *new_point(int index);
 struct Coordinates new_coordinates_from_py_tuple(PyObject *tuple);
 PyObject *coordinates_to_py_tuple(struct Coordinates c);
