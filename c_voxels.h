@@ -17,25 +17,25 @@ struct PointCloud {
 };
 
 struct Coordinates {
-    int x;
-    int y;
-    int z;
+	int x;
+	int y;
+	int z;
 };
 
 struct Point {
-    unsigned int index;
-    struct Point *next;
+	unsigned int index;
+	struct Point *next;
 };
 
 struct Voxel {
-    struct Coordinates coord; // This is the key
-    struct Point *points; // list of points (provided py utlist)
-    int num_points;
-    int index;
+	struct Coordinates coord; // This is the key
+	struct Point *points; // list of points (provided py utlist)
+	int num_points;
+	int index;
 	int label;
 	bool visited;
 
-    UT_hash_handle hh; // Needed by uthash
+	UT_hash_handle hh; // Needed by uthash
 };
 
 
@@ -67,7 +67,7 @@ PyDoc_STRVAR(voxelize_cloud_doc,
 	"   Keys are voxels coordinates (x,y,z)\n"
 	"   Values are lists of points indices belonging to the voxel"
 );
-static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds);
+static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *kwargs);
 
 PyDoc_STRVAR(neighbours_of_voxels_doc,
 	"neighbours_of_voxels(voxels) -> dict\n\n"
@@ -79,7 +79,6 @@ PyDoc_STRVAR(neighbours_of_voxels_doc,
 	"   Values are lists of points "
 );
 static PyObject* neighbours_of_voxels(PyObject *self, PyObject *args);
-
 
 PyDoc_STRVAR(project_to_3d_doc,
 	"project_to_3d(coords, mask, classification, coords_min, k)\n\n"
@@ -96,7 +95,6 @@ static PyObject* project_to_3d(PyObject *self, PyObject *args);
 
 static PyObject* labelize_voxels(PyObject *self, PyObject *args);
 
-static PyObject *version(PyObject *self);
 
 /*
  * C function that computes the voxels
