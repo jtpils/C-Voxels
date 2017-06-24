@@ -9,6 +9,28 @@ import numpy as np
 
 from datetime import datetime
 
+import time                                                
+
+def timeit(method):
+
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+
+        return result, (te-ts)
+
+    return timed
+
+@timeit
+def exec_func(function, *args, **kwargs):
+    return function(*args, **kwargs) 
+
+def time_func(func, *args, **kwargs):
+    res, exec_time = exec_func(func, *args, **kwargs)
+    print "{} took {} secs".format(func.__name__, exec_time)
+    return res
+
 def main():
 
     cloud = LasCloud(sys.argv[1])
@@ -18,35 +40,30 @@ def main():
     classification = cloud.classification
     mins = cloud.bb_min
 
-    filter = [7]
+    filter = [0]
     is_blacklist=False
 
     c_voxels = voxels = None
-    print len(classification)
+    print "Number of points: {}".format(len(classification))
+    print ""
 
-
-    print "Start c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    print "Executing C functions:"
     if is_blacklist:
-        c_voxels = cvoxels.voxelize_cloud(coords, classification, mins, k, class_blacklist=filter)
+        c_voxels = time_func(cvoxels.voxelize_cloud, cloud, k, class_blacklist=filter)
     else:
-        c_voxels = cvoxels.voxelize_cloud(coords, classification, mins, k, class_whitelist=filter)
-    print "End c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        c_voxels = time_func(cvoxels.voxelize_cloud, cloud, k, class_whitelist=filter)
 
-    print "Start c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    c_neigh = cvoxels.neighbours_of_voxels(c_voxels)
-    print "End c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    c_neigh = time_func(cvoxels.neighbours_of_voxels, c_voxels)
 
 
-    print "Start py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    print ""
+    print "Executing Python functions:"
     if is_blacklist:
-        voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=filter)
+        voxels = time_func(pyvoxels.voxelize_cloud, cloud, k, class_blacklist=filter)
     else:
-        voxels = pyvoxels.voxelize_cloud(cloud, k, class_whitelist=filter)
-    print "End py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        voxels = time_func(pyvoxels.voxelize_cloud, cloud, k, class_whitelist=filter)
 
-    print "Start py-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    py_neigh = extract.adjacency_dict_of_voxels(voxels)
-    print "End py-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    py_neigh = time_func(extract.adjacency_dict_of_voxels, voxels)
 
 
     print "Start Comparing {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
