@@ -66,9 +66,11 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds
 		}
 	}
 	
+	struct PointCloud cloud = { num_points, coords, bb_min, classification };
+
     PyObject *voxels_dict = PyDict_New();
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
-    voxels = compute_voxels(coords, classification, c_class_filter, bb_min, k, num_points);
+    voxels = compute_voxels(cloud, k, c_class_filter);
 
 	if (!voxels) {
 		goto end;
@@ -209,40 +211,13 @@ static PyObject* project_to_3d(PyObject *self, PyObject *args) {
 
 		struct Coordinates c = get_voxel_coordinates(x, y, z, k, c_coords_min);
 		if ((int) *(unsigned char*) PyArray_GETPTR2(py_mask, c.x, c.y) == 255) {
-			c_classification[i] = code;
+			c_classification[i] = (unsigned char)code;
 		}
 	}
 
 	free(c_coords_min);
 	return Py_None;
 }
-
-
-
-static PyObject* test(PyObject *self, PyObject *args) {
-	PyArrayObject *array;
-
-	if (!PyArg_ParseTuple(args, "O!", &PyArray_Type, &array))
-		return NULL;
-
-	array = (PyArrayObject *)PyArray_FROM_OTF(array, NPY_DOUBLE, NPY_IN_ARRAY);
-
-	double *a = (double*)PyArray_DATA(array);
-
-	PySys_WriteStderr("%d\n", PyArray_DIM(array, 0));
-	PySys_WriteStderr("%d\n", PyArray_DIM(array, 1));
-
-	for (int i = 0; i < PyArray_DIM(array, 0); ++i) {
-		for (int j = 0; j < PyArray_DIM(array, 1); ++j) {
-			PySys_WriteStderr("%f ", a[(PyArray_DIM(array, 1)*i) + j]);
-		}
-		PySys_WriteStderr("\n");
-	}
-
-
-	return Py_None;
-}
-
 
 //=====================================================================
 // C functions
@@ -255,19 +230,16 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
     return voxel_coords;
 }
 
-// TODO: Lets create a struct PointCloud !
-static struct Voxel *compute_voxels(const double *coords, const unsigned char * classification,
- const Filter filter_list[MAX_CLASS],
-									const double * coords_min, double k, unsigned int num_points) {
+static struct Voxel *compute_voxels(const struct PointCloud cloud, double k, const Filter filter_list[MAX_CLASS]) {
 
     struct Voxel *p = NULL, *voxels = NULL;
     unsigned int i;
-    for (i = 0; i < num_points; ++i) {
+    for (i = 0; i < cloud.num_points; ++i) {
        
-        if (filter_list[(int)classification[i]] != whitelisted) {
+        if (filter_list[(int)cloud.classification[i]] != whitelisted) {
             continue;
         }
-        struct Coordinates c = get_voxel_coordinates(coords[(3*i) + 0], coords[(3 * i) + 1], coords[(3 * i) + 2], k, coords_min);
+        struct Coordinates c = get_voxel_coordinates(cloud.coords[(3*i) + 0], cloud.coords[(3 * i) + 1], cloud.coords[(3 * i) + 2], k, cloud.bb_min);
         struct Voxel v = new_voxel_stack(c, i);
 
         HASH_FIND(hh, voxels, &(v.coord), sizeof(struct Coordinates), p);
@@ -352,7 +324,6 @@ static PyMethodDef cvoxel_methods[] = {
     {"version", (PyCFunction)version, METH_NOARGS, "Returns de module version"},
     {"neighbours_of_voxels", neighbours_of_voxels, METH_VARARGS, "ayy lmao"},
 	{"project_to_3d", project_to_3d, METH_VARARGS, "wassup"},
-	{ "test", test, METH_VARARGS, "wassup" },
     {NULL, NULL, 0, NULL}
 };
 

@@ -7,6 +7,13 @@
 
 #define MAX_CLASS 256
 
+struct PointCloud {
+	unsigned num_points;
+	double *coords;
+	double *bb_min;
+	unsigned char *classification;
+};
+
 struct Coordinates {
     int x;
     int y;
@@ -25,7 +32,6 @@ struct Voxel {
     int index;
 	int label;
 	bool visited;
-
 
     UT_hash_handle hh; // Needed by uthash
 };
@@ -97,9 +103,7 @@ static PyObject *version(PyObject *self);
  *
  * returns a hash table (implemented in uthash)
  */
-static struct Voxel *compute_voxels(const double * coords, const unsigned char *classification,
- const Filter filter_list[MAX_CLASS], 
-									const double *coords_min, double k, unsigned int num_points);
+static struct Voxel *compute_voxels(const struct PointCloud cloud, double k, const Filter filter_list[MAX_CLASS]);
 
 
 static struct Coordinates get_voxel_coordinates(double x, double y, double z, double k, const double *coords_min);
