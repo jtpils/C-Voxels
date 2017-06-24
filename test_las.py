@@ -18,10 +18,18 @@ def main():
     classification = cloud.classification
     mins = cloud.bb_min
 
+    filter = [7]
+    is_blacklist=False
+
+    c_voxels = voxels = None
     print len(classification)
 
+
     print "Start c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    c_voxels = cvoxels.voxelize_cloud(coords, classification, [7], mins, k)
+    if is_blacklist:
+        c_voxels = cvoxels.voxelize_cloud(coords, classification, mins, k, class_blacklist=filter)
+    else:
+        c_voxels = cvoxels.voxelize_cloud(coords, classification, mins, k, class_whitelist=filter)
     print "End c-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start c-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -30,7 +38,10 @@ def main():
 
 
     print "Start py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=[7])
+    if is_blacklist:
+        voxels = pyvoxels.voxelize_cloud(cloud, k, class_blacklist=filter)
+    else:
+        voxels = pyvoxels.voxelize_cloud(cloud, k, class_whitelist=filter)
     print "End py-voxelization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     print "Start py-neighbourization {}".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

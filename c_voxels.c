@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
@@ -13,10 +12,12 @@
 //=====================================================================
 // Functions callable from Python
 //=====================================================================
-static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
+static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds) {
     PyArrayObject *py_coords;
-    PyObject *py_classification, *py_class_black_list, *py_coords_min;
-	
+	PyObject *py_classification, *py_coords_min, *py_class_black_list = NULL, *py_class_white_list = NULL;
+
+	static const char *kwlist[] = { "coords", "classification", "coords_min", "k", "class_blacklist", "class_whitelist", NULL };
+
 
     double *c_coords_min;
 	unsigned char *c_classification;
@@ -24,51 +25,57 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
     double k;
 
     // Parse args from python call
-	if (!PyArg_ParseTuple(args, "O!OOOd", &PyArray_Type, &py_coords, &py_classification, &py_class_black_list,
-                          &py_coords_min, &k))
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "O!OOd|OO", kwlist, &PyArray_Type, &py_coords, &py_classification, &py_coords_min, &k,
+										                      &py_class_black_list, &py_class_white_list))
         return NULL;
 
     // Check that we actually get lists for some of the args
-    if (!PySequence_Check(py_classification) || !PySequence_Check(py_class_black_list) ||
-        !PySequence_Check(py_coords_min)) {
+    if (!PySequence_Check(py_classification) || !PySequence_Check(py_coords_min)) {
         PyErr_SetString(PyExc_TypeError, "expected sequence");
         return NULL;
     }
 
+	if (py_class_black_list && py_class_white_list) {
+		PyErr_SetString(PyExc_ValueError, "provide either a black list or white list, not both");
+		return NULL;
+	}
+
 	num_points = (unsigned int)PyArray_DIM(py_coords, 0);
 
-	double **c_coords = py_2d_array_to_c_2d_array(py_coords);
-	if (c_coords == NULL) {
-		free_2d_array(c_coords, num_points);
-		return PyErr_NoMemory();
-	}
-
 	// Convert classification to a contiguous array that can be used in C
-	PyArrayObject *classification_array;
-	classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_UINT8, NPY_IN_ARRAY);
+	PyArrayObject *classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_UINT8, NPY_IN_ARRAY);
+	py_coords = (PyArrayObject *)PyArray_FROM_OTF(py_coords, NPY_DOUBLE, NPY_IN_ARRAY);
 
-	if ((unsigned int)PyArray_DIM(classification_array, 0) != num_points) {
-		PySys_WriteStdout("Error: Classification is not the same length as the number of points");
+	const double *c_coords = (double*)PyArray_DATA(py_coords);
+
+	Filter c_class_filter[MAX_CLASS] = { whitelisted };
+
+	if (py_class_black_list) {
+		for (Py_ssize_t i = 0; i < PyList_Size(py_class_black_list); ++i) {
+			int code = PyInt_AsLong(PyList_GetItem(py_class_black_list, i));
+			c_class_filter[code] = blacklisted;
+		}
 	}
-	
-	int c_class_black_list[256] = { 0 };
-    Py_ssize_t i;
-	for (i = 0; i < PyList_Size(py_class_black_list); ++i) {
-		int code = PyInt_AsLong(PyList_GetItem(py_class_black_list, i));
-		c_class_black_list[code] = 1;
+	if (py_class_white_list) {
+		for (size_t i = 0; i < MAX_CLASS; ++i) {
+			c_class_filter[i] = blacklisted;
+		}
+		for (Py_ssize_t i = 0; i < PyList_Size(py_class_white_list); ++i) {
+			int code = PyInt_AsLong(PyList_GetItem(py_class_white_list, i));
+			c_class_filter[code] = whitelisted;
+		}
 	}
 
 	c_classification = (unsigned char*) PyArray_DATA(classification_array);
     c_coords_min = py_double_list_to_c_array(py_coords_min);
 	
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
-    voxels = compute_voxels((const double **)c_coords, c_classification, c_class_black_list, c_coords_min, k, num_points);
+    voxels = compute_voxels(c_coords, c_classification, c_class_filter, c_coords_min, k, num_points);
 
 	if (!voxels) {
 		PyArray_XDECREF_ERR(classification_array);
 		free(c_coords_min);
-		free_2d_array(c_coords, num_points);
-		return PyErr_NoMemory();
+		return PyDict_New();
 	}
 
     struct Point *current_point, *tmp_point;
@@ -95,7 +102,6 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args) {
 
 	PyArray_XDECREF_ERR(classification_array);
     free(c_coords_min);
-	free_2d_array(c_coords, num_points);
 	return voxels_dict;
 }
 
@@ -217,6 +223,32 @@ static PyObject* project_to_3d(PyObject *self, PyObject *args) {
 }
 
 
+
+static PyObject* test(PyObject *self, PyObject *args) {
+	PyArrayObject *array;
+
+	if (!PyArg_ParseTuple(args, "O!", &PyArray_Type, &array))
+		return NULL;
+
+	array = (PyArrayObject *)PyArray_FROM_OTF(array, NPY_DOUBLE, NPY_IN_ARRAY);
+
+	double *a = (double*)PyArray_DATA(array);
+
+	PySys_WriteStderr("%d\n", PyArray_DIM(array, 0));
+	PySys_WriteStderr("%d\n", PyArray_DIM(array, 1));
+
+	for (int i = 0; i < PyArray_DIM(array, 0); ++i) {
+		for (int j = 0; j < PyArray_DIM(array, 1); ++j) {
+			PySys_WriteStderr("%f ", a[(PyArray_DIM(array, 1)*i) + j]);
+		}
+		PySys_WriteStderr("\n");
+	}
+
+
+	return Py_None;
+}
+
+
 //=====================================================================
 // C functions
 //=====================================================================
@@ -229,17 +261,18 @@ static struct Coordinates get_voxel_coordinates(double x, double y, double z, do
 }
 
 // TODO: Lets create a struct PointCloud !
-static struct Voxel *compute_voxels(const double ** coords, const unsigned char * classification, const int black_list[256], 
+static struct Voxel *compute_voxels(const double *coords, const unsigned char * classification,
+ const Filter filter_list[MAX_CLASS],
 									const double * coords_min, double k, unsigned int num_points) {
 
     struct Voxel *p = NULL, *voxels = NULL;
     unsigned int i;
     for (i = 0; i < num_points; ++i) {
        
-        if (black_list[(int)classification[i]]) {
+        if (filter_list[(int)classification[i]] != whitelisted) {
             continue;
         }
-        struct Coordinates c = get_voxel_coordinates(coords[i][0], coords[i][1], coords[i][2], k, coords_min);
+        struct Coordinates c = get_voxel_coordinates(coords[(3*i) + 0], coords[(3 * i) + 1], coords[(3 * i) + 2], k, coords_min);
         struct Voxel v = new_voxel_stack(c, i);
 
         HASH_FIND(hh, voxels, &(v.coord), sizeof(struct Coordinates), p);
@@ -315,16 +348,16 @@ PyObject *coordinates_to_py_tuple(struct Coordinates c) {
 	return Py_BuildValue("(i,i,i)", c.x, c.y, c.z);
 }
 
-
 //=====================================================================
 // Python API function to register module
 //=====================================================================
 
 static PyMethodDef cvoxel_methods[] = {
-    {"voxelize_cloud", voxelize_cloud, METH_VARARGS, "Voxelize the cloud"},
+    {"voxelize_cloud", (PyCFunction)voxelize_cloud, METH_VARARGS | METH_KEYWORDS, "Voxelize the cloud"},
     {"version", (PyCFunction)version, METH_NOARGS, "Returns de module version"},
     {"neighbours_of_voxels", neighbours_of_voxels, METH_VARARGS, "ayy lmao"},
 	{"project_to_3d", project_to_3d, METH_VARARGS, "wassup"},
+	{ "test", test, METH_VARARGS, "wassup" },
     {NULL, NULL, 0, NULL}
 };
 
