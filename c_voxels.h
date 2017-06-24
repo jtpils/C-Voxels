@@ -1,4 +1,6 @@
 #include <stdbool.h>
+#include <Python.h>
+
 #include "uthash.h"
 #include "utlist.h"
 
@@ -46,52 +48,50 @@ enum Filter
 };
 
 
-/* 
- * Voxelizes the cloud given in input
- *
- * Mandatory Arguments:
- *  - points coordinates : numpy.array with shape (num_points, 3)
- *  - classification : list of integers
- *  - coords_min : list of doubles that gives the minimum in x, y, z
- *  - k : double, coefficient that gives the voxel size in meter
- *
- * Optionnal Keyword Arguments:
- *  - class_blacklist: list of integers representing the classes to ignore
- *  - class_whitelist: list of integers representing the class to consider
- *
- * You must only give either a blacklist or a whitelist but never both at the same time.
- * If no list is provided all points will be considered
- *
- * returns a PyDict of voxels:
- * 	- keys: voxels coordinates (x, y, z)
- *  - values : list of index of the points contained in the voxel
- */
 
+PyDoc_STRVAR(voxelize_cloud_doc,
+	"voxelize_cloud(cloud, k, class_blacklist=None, class_whitelist=None) -> dict\n\n"
+	"Computes the voxels of the input cloud and the points contained into them\n"
+	"Inputs:\n"
+	"cloud: a object that has the following attributes:\n"
+	"   coords: matrix of points coordinates (shape num_points x 3)\n"
+	"   bb_min: the minimum coordinates along the x,y and z axis\n"
+	"   classification: the class attribuated to a point\n"
+	"k: coefficient that gives the size for thr voxels\n"
+	"class_blacklist: Optionnal, if provided points with a classification code \n"
+	"included in the blacklist will be ignored\n"
+	"class_whitelist: Optionnal, if provided only points with a classification code\n"
+	"included in the whitelist will be considered\n"
+	"You can provide one of the 2 filter list (or none at all) at a time\n"
+	"Returns a dict: \n"
+	"   Keys are voxels coordinates (x,y,z)\n"
+	"   Values are lists of points indices belonging to the voxel"
+);
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds);
-/*
- * Builds a adjacency_dict from a voxels dict
- * 
- * Mandatory Argument:
- *  - voxels: dict of voxels
- *
- * returns a adjacency dict:
- *  - keys: voxels coordinates (x, y, z)
- *  - values: list of voxel coordinates which are neighbour to the key voxel
- */
+
+PyDoc_STRVAR(neighbours_of_voxels_doc,
+	"neighbours_of_voxels(voxels) -> dict\n\n"
+	"Computes the adjacency of voxels\n"
+	"Inputs:\n"
+	"voxels: a dict of voxels, see voxelize_cloud\n"
+	"Return: a dict:\n"
+	"   Keys are voxels coords\n"
+	"   Values are lists of points "
+);
 static PyObject* neighbours_of_voxels(PyObject *self, PyObject *args);
 
 
-/* Projects a classification contained within a mask image to a point cloud
- *  
- * Mandatory Arguments:
- *  - points coordinates : numpy.array with shape (num_points, 3)
- *  - mask: numpy.array (2D) of np.uint8
- *  - classification : numpy.array whith shape (num_points, 1)
- *  - coords_min : list of doubles that gives the minimum in x, y, z
- *  - k: double, coefficient that gives the size of the pixel
- *
- * returns nothing
- */
+PyDoc_STRVAR(project_to_3d_doc,
+	"project_to_3d(coords, mask, classification, coords_min, k)\n\n"
+	"Projects a classification contained within a mask image to a point cloud\n"
+	"Inputs:\n"
+	"  - points coordinates : numpy.array with shape (num_points, 3)\n"
+	"  - mask: numpy.array (2D) of np.uint8\n"
+	"  - classification : numpy.array whith shape (num_points, 1)\n"
+	"  - coords_min : list of doubles that gives the minimum in x, y, z\n"
+	"  - k: double, coefficient that gives the size of the pixel\n"
+	"Returns nothing"
+);
 static PyObject* project_to_3d(PyObject *self, PyObject *args);
 
 static PyObject* labelize_voxels(PyObject *self, PyObject *args);
