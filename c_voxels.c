@@ -13,43 +13,43 @@
 // Functions callable from Python
 //=====================================================================
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds) {
-    PyArrayObject *py_coords;
-	PyObject *py_classification, *py_coords_min, *py_class_black_list = NULL, *py_class_white_list = NULL;
 
-	static const char *kwlist[] = { "coords", "classification", "coords_min", "k", "class_blacklist", "class_whitelist", NULL };
-
-
-    double *c_coords_min;
-	unsigned char *c_classification;
-	unsigned int num_points;
+	PyObject *py_cloud, *py_class_black_list = NULL, *py_class_white_list = NULL;
     double k;
 
     // Parse args from python call
-	if (!PyArg_ParseTupleAndKeywords(args, keywds, "O!OOd|OO", kwlist, &PyArray_Type, &py_coords, &py_classification, &py_coords_min, &k,
-										                      &py_class_black_list, &py_class_white_list))
+	static const char *kwlist[] = { "cloud", "k", "class_blacklist", "class_whitelist", NULL };
+	if (!PyArg_ParseTupleAndKeywords(args, keywds, "Od|OO", kwlist, &py_cloud, &k, &py_class_black_list, &py_class_white_list))
         return NULL;
-
-    // Check that we actually get lists for some of the args
-    if (!PySequence_Check(py_classification) || !PySequence_Check(py_coords_min)) {
-        PyErr_SetString(PyExc_TypeError, "expected sequence");
-        return NULL;
-    }
 
 	if (py_class_black_list && py_class_white_list) {
-		PyErr_SetString(PyExc_ValueError, "provide either a black list or white list, not both");
+		PyErr_SetString(PyExc_ValueError, "Provide either a black list or white list, not both");
 		return NULL;
 	}
 
-	num_points = (unsigned int)PyArray_DIM(py_coords, 0);
+	// Get attributes from the cloud object
+	PyObject *coords_attr = PyObject_GetAttrString(py_cloud, "coords");
+	PyObject *bb_min_attr = PyObject_GetAttrString(py_cloud, "bb_min");
+	PyObject *classification_attr = PyObject_GetAttrString(py_cloud, "classification");
 
-	// Convert classification to a contiguous array that can be used in C
-	PyArrayObject *classification_array = (PyArrayObject *) PyArray_FROM_OTF(py_classification, NPY_UINT8, NPY_IN_ARRAY);
-	py_coords = (PyArrayObject *)PyArray_FROM_OTF(py_coords, NPY_DOUBLE, NPY_IN_ARRAY);
+	if (!coords_attr || !classification_attr || !bb_min_attr) {
+		PyErr_SetString(PyExc_ValueError, "The cloud object must have the following attributes: coords, classification, bb_min");
+		return NULL;
+	}
 
-	const double *c_coords = (double*)PyArray_DATA(py_coords);
+	// Convert attributes to contiguous arrays
+	PyArrayObject *coords_array = (PyArrayObject *) PyArray_FROM_OTF(coords_attr, NPY_DOUBLE, NPY_IN_ARRAY);
+	PyArrayObject *bb_min_array = (PyArrayObject *) PyArray_FROM_OTF(bb_min_attr, NPY_DOUBLE, NPY_IN_ARRAY);
+	PyArrayObject *classification_array = (PyArrayObject *) PyArray_FROM_OTF(classification_attr, NPY_UINT8, NPY_IN_ARRAY);
 
+	// Get pointers to data from the arrays
+	unsigned num_points = (unsigned) PyArray_DIM(coords_attr, 0);
+	const double *coords = (double *) PyArray_DATA(coords_array);
+	const double *bb_min = (double *) PyArray_DATA(bb_min_array);
+	unsigned char *classification = (unsigned char *) PyArray_DATA(classification_array);
+	
+	// Init blacklist or whitelist
 	Filter c_class_filter[MAX_CLASS] = { whitelisted };
-
 	if (py_class_black_list) {
 		for (Py_ssize_t i = 0; i < PyList_Size(py_class_black_list); ++i) {
 			int code = PyInt_AsLong(PyList_GetItem(py_class_black_list, i));
@@ -65,21 +65,16 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds
 			c_class_filter[code] = whitelisted;
 		}
 	}
-
-	c_classification = (unsigned char*) PyArray_DATA(classification_array);
-    c_coords_min = py_double_list_to_c_array(py_coords_min);
 	
+    PyObject *voxels_dict = PyDict_New();
     struct Voxel *current_voxel, *tmp, *voxels = NULL;
-    voxels = compute_voxels(c_coords, c_classification, c_class_filter, c_coords_min, k, num_points);
+    voxels = compute_voxels(coords, classification, c_class_filter, bb_min, k, num_points);
 
 	if (!voxels) {
-		PyArray_XDECREF_ERR(classification_array);
-		free(c_coords_min);
-		return PyDict_New();
+		goto end;
 	}
 
     struct Point *current_point, *tmp_point;
-    PyObject *voxels_dict = PyDict_New();
 
     HASH_ITER(hh, voxels, current_voxel, tmp) {
         int index = 0;
@@ -94,15 +89,15 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *keywds
         }
         PyDict_SetItem(voxels_dict, key, list_of_points);
 
-
         HASH_DEL(voxels, current_voxel);
         free(current_voxel);
     }
 
-
-	PyArray_XDECREF_ERR(classification_array);
-    free(c_coords_min);
-	return voxels_dict;
+	end:
+		PyArray_XDECREF_ERR(classification_array);
+		PyArray_XDECREF_ERR(classification_array);
+		PyArray_XDECREF_ERR(coords_array);
+		return voxels_dict;
 }
 
 
