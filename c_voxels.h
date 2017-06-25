@@ -93,6 +93,8 @@ PyDoc_STRVAR(project_to_3d_doc,
 );
 static PyObject* project_to_3d(PyObject *self, PyObject *args);
 
+static PyObject* test(PyObject *self, PyObject *args);
+
 static PyObject* labelize_voxels(PyObject *self, PyObject *args);
 
 

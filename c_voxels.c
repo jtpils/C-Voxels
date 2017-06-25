@@ -223,6 +223,58 @@ static PyObject* project_to_3d(PyObject *self, PyObject *args) {
 	return Py_None;
 }
 
+static PyObject* test(PyObject *self, PyObject *args) {
+	PyObject *svd_func;
+	PyObject *matrix;
+
+	// Parse args from python call
+	if (!PyArg_ParseTuple(args, "OO", &svd_func, &matrix))
+		return NULL;
+
+	PyObject *ret = PyObject_CallObject(svd_func, Py_BuildValue("(O)", matrix));
+
+	return ret;
+}
+
+static PyObject* test2(PyObject *self, PyObject *args) {
+	PyObject *voxels_coords, *neighbours, *svd_func;
+
+	// Parse args from python call
+	if (!PyArg_ParseTuple(args, "OOO", &voxels_coords, &neighbours, &svd_func))
+		return NULL;
+
+	Py_ssize_t num_voxels = PyObject_Length(voxels_coords);
+	PyArrayObject* neighs = (PyArrayObject*) PyArray_FROM_OTF(neighbours, NPY_INT, NPY_IN_ARRAY);
+	npy_intp dims[2] = { 15, 3 };
+	
+	PySys_WriteStderr("%d -> (%d, %d)\n", PyArray_NDIM(neighs), PyArray_DIM(neighs, 0), PyArray_DIM(neighs, 1));
+
+	PySys_WriteStderr("num_voxels: %d\n", num_voxels);
+	for (unsigned i = 0; i < num_voxels; ++i) {
+		PyObject *coords_array = PyArray_SimpleNew(2, dims, NPY_INT);
+		PySys_WriteStderr("Koukou: %d\n", i);
+
+		for (unsigned neigh_id = 0; neigh_id < 15; ++neigh_id) {
+			int id = (int) *(int*)PyArray_GETPTR2(neighs, i, neigh_id);
+			PySys_WriteStderr("neigh_id: %d, id: %d\n", neigh_id, id);
+			PyObject *coord = PyList_GetItem(voxels_coords, id);
+			if (!coord)
+				PySys_WriteStderr("FAIL\n");
+			struct Coordinates c = new_coordinates_from_py_tuple(coord);
+
+			*(int*)PyArray_GETPTR2(coords_array, neigh_id, 0) = c.x;
+			*(int*)PyArray_GETPTR2(coords_array, neigh_id, 1) = c.y;
+			*(int*)PyArray_GETPTR2(coords_array, neigh_id, 2) = c.z;
+			
+			PyObject *centroid = PyArray_Mean(coords_array, 0, NPY_NOTYPE, NULL);
+		}
+
+
+	}
+
+
+	return Py_None;
+}
 //=====================================================================
 // C functions
 //=====================================================================
@@ -327,6 +379,8 @@ static PyMethodDef cvoxel_methods[] = {
 	{"voxelize_cloud", (PyCFunction) voxelize_cloud, METH_VARARGS | METH_KEYWORDS, voxelize_cloud_doc},
 	{"neighbours_of_voxels", neighbours_of_voxels, METH_VARARGS, neighbours_of_voxels_doc},
 	{"project_to_3d", project_to_3d, METH_VARARGS, project_to_3d_doc},
+	{"test", test, METH_VARARGS, "heee"},
+	{"test2", test2, METH_VARARGS, "heee"},
 	{NULL, NULL, 0, NULL}
 };
 
