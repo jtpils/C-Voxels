@@ -93,7 +93,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *kwargs
 
 end:
 	PyArray_XDECREF_ERR(classification_array);
-	PyArray_XDECREF_ERR(classification_array);
+	PyArray_XDECREF_ERR(bb_min_array);
 	PyArray_XDECREF_ERR(coords_array);
 	return voxels_dict;
 }
@@ -218,7 +218,7 @@ static PyObject* project_to_3d(PyObject *self, PyObject *args) {
 	}
 
 	PyArray_XDECREF_ERR(classification_array);
-	PyArray_XDECREF_ERR(classification_array);
+	PyArray_XDECREF_ERR(bb_min_array);
 	PyArray_XDECREF_ERR(coords_array);
 	return Py_None;
 }
