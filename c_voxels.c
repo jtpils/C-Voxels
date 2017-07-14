@@ -126,8 +126,7 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 
 	// Build the hash table of voxels
 	// Caring only about the keys, not the values
-	int i;
-	for (i = 0; i < num_voxels; ++i) {
+	for (int i = 0; i < num_voxels; ++i) {
 		PyObject *key = PyList_GetItem(py_keys, i);
 		struct Coordinates c = new_coordinates_from_py_tuple(key);
 		v = new_voxel(c, i);
@@ -145,8 +144,7 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 
 
 		PyObject *neighbours_list = PyList_New(0);
-		int k;
-		for (k = 0; k < 6; ++k) {
+		for (int k = 0; k < 6; ++k) {
 			HASH_FIND(hh, c_voxels, &(potential_neighbours[k]), sizeof(struct Coordinates), p);
 
 			if (p) {

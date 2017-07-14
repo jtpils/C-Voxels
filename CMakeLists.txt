@@ -24,8 +24,6 @@ endif(PYTHONLIBS_FOUND)
 set(SOURCE_FILES
         c_voxels.c
         c_voxels.h
-		conversion_utilities.h
-		conversion_utilities.c
         uthash.h
         utlist.h)
 

@@ -1,7 +1,7 @@
 from distutils.core import setup, Extension
 import numpy
 
-module = Extension("cvoxels", sources=["c_voxels.c","conversion_utilities.c"],
+module = Extension("cvoxels", sources=["c_voxels.c"],
                    include_dirs=[numpy.get_include()],
                    extra_compile_args=['-std=c99'],)
 
