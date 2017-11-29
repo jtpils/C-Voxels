@@ -1,0 +1,12 @@
+[package]
+name = "rvoxels"
+version = "0.1.0"
+authors = ["Jälv <thomas.montaigu@laposte.net>"]
+
+[lib]
+name = "rust2py"
+crate-type = ["cdylib"]
+
+[dependencies.pyo3]
+version = "0.2.3"
+features = ["extension-module"]
