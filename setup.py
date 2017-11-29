@@ -1,11 +1,29 @@
 from distutils.core import setup, Extension
+from os.path import basename, dirname, abspath, join
+
 import numpy
 
-module = Extension("cvoxels", sources=["c_voxels.c"],
-                   include_dirs=[numpy.get_include()],
-                   extra_compile_args=['-std=c99'],)
+MODULE_NAME = "cvoxels"
 
-setup(name="PLAnalisys",
-      version="0.1",
-      description="Provides functions in C",
-      ext_modules=[module])
+
+def configure_module(namespace='', top_folder='', compiler_args=None):
+    current_dir = basename(dirname(abspath(__file__)))
+    sources = ["c_voxels.c"]
+
+    name = "{}.{}".format(namespace, MODULE_NAME) if namespace else MODULE_NAME
+
+    module_sources = [join(top_folder, current_dir, src) for src in sources] if top_folder else sources
+
+    compiler_args = [] if compiler_args is None else compiler_args
+
+    c_module = Extension(name, sources=module_sources,
+                         include_dirs=[numpy.get_include()],
+                         extra_compile_args=compiler_args)
+    return c_module
+
+
+if __name__ == '__main__':
+    setup(name=MODULE_NAME,
+          version="0.1",
+          description="Provides Voxelization function in C",
+          ext_modules=[configure_module()])

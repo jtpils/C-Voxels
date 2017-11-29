@@ -1,7 +1,7 @@
 #include <numpy/arrayobject.h>
+#include <stdint.h>
 
 #include "c_voxels.h"
-#include "conversion_utilities.h"
 #include "uthash.h"
 
 
@@ -10,15 +10,16 @@
 //=====================================================================
 static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *kwargs) {
 
-	PyObject *py_cloud, *py_class_black_list = NULL, *py_class_white_list = NULL;
+	PyObject *py_cloud = NULL, *py_class_black_list = Py_None, *py_class_white_list = Py_None;
+	PyObject *voxels_dict = NULL;
 	double k;
 
 	// Parse args from python call
-	static const char *kwlist[] = { "cloud", "k", "class_blacklist", "class_whitelist", NULL };
+    static char *kwlist[] = { "cloud", "k", "class_blacklist", "class_whitelist", NULL };
 	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Od|OO", kwlist, &py_cloud, &k, &py_class_black_list, &py_class_white_list))
 		return NULL;
 
-	if (py_class_black_list && py_class_white_list) {
+	if (py_class_black_list != Py_None && py_class_white_list != Py_None) {
 		PyErr_SetString(PyExc_ValueError, "Provide either a black list or white list, not both");
 		return NULL;
 	}
@@ -29,8 +30,7 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *kwargs
 	PyObject *classification_attr = PyObject_GetAttrString(py_cloud, "classification");
 
 	if (!coords_attr || !classification_attr || !bb_min_attr) {
-		PyErr_SetString(PyExc_ValueError, "The cloud object must have the following attributes: coords, classification, bb_min");
-		return NULL;
+		goto end;
 	}
 
 	// Convert attributes to contiguous arrays
@@ -39,32 +39,49 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *kwargs
 	PyArrayObject *classification_array = (PyArrayObject *) PyArray_FROM_OTF(classification_attr, NPY_UINT8, NPY_IN_ARRAY);
 
 	// Get pointers to data from the arrays
-	unsigned num_points = (unsigned) PyArray_DIM(coords_attr, 0);
-	const double *coords = (double *) PyArray_DATA(coords_array);
-	const double *bb_min = (double *) PyArray_DATA(bb_min_array);
-	unsigned char *classification = (unsigned char *) PyArray_DATA(classification_array);
+	unsigned num_points = (unsigned) PyArray_DIM(coords_array, 0);
+    double *coords = (double *) PyArray_DATA(coords_array);
+    double *bb_min = (double *) PyArray_DATA(bb_min_array);
+	uint8_t *classification = (uint8_t *) PyArray_DATA(classification_array);
 
 	// Init blacklist or whitelist
 	Filter c_class_filter[MAX_CLASS] = { whitelisted };
-	if (py_class_black_list) {
+	if (py_class_black_list != Py_None) {
 		for (Py_ssize_t i = 0; i < PyList_Size(py_class_black_list); ++i) {
-			int code = PyInt_AsLong(PyList_GetItem(py_class_black_list, i));
+			int code = PyLong_AsLong(PyList_GetItem(py_class_black_list, i));
+		    if (code < 0 || code >= MAX_CLASS) {
+		        PyErr_Format(
+		            PyExc_IndexError,
+		            "%d is not a valid class blacklist code.\nCode must be between 0 and %d",
+		            code, MAX_CLASS - 1
+		        );
+		        goto end;
+
+		    }
 			c_class_filter[code] = blacklisted;
 		}
 	}
-	if (py_class_white_list) {
+	if (py_class_white_list != Py_None) {
 		for (size_t i = 0; i < MAX_CLASS; ++i) {
 			c_class_filter[i] = blacklisted;
 		}
 		for (Py_ssize_t i = 0; i < PyList_Size(py_class_white_list); ++i) {
-			int code = PyInt_AsLong(PyList_GetItem(py_class_white_list, i));
+			int code = PyLong_AsLong(PyList_GetItem(py_class_white_list, i));
+            if (code < 0 || code >= MAX_CLASS) {
+		        PyErr_Format(
+		            PyExc_IndexError,
+		            "%d is not a valid class whitelist code.\nCode must be between 0 and %d",
+		            code, MAX_CLASS - 1
+		        );
+		        goto end;
+		    }
 			c_class_filter[code] = whitelisted;
 		}
 	}
 
-	struct PointCloud cloud = { num_points, coords, bb_min, classification };
+    const struct PointCloud cloud = { num_points, coords, bb_min, classification };
 
-	PyObject *voxels_dict = PyDict_New();
+	voxels_dict = PyDict_New();
 	struct Voxel *current_voxel, *tmp, *voxels = NULL;
 	voxels = compute_voxels(cloud, k, c_class_filter);
 
@@ -92,6 +109,9 @@ static PyObject* voxelize_cloud(PyObject *self, PyObject *args, PyObject *kwargs
 	}
 
 end:
+	Py_XDECREF(coords_attr);
+	Py_XDECREF(bb_min_attr);
+	Py_XDECREF(classification_attr);
 	PyArray_XDECREF_ERR(classification_array);
 	PyArray_XDECREF_ERR(bb_min_array);
 	PyArray_XDECREF_ERR(coords_array);
@@ -123,10 +143,10 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 	// Creating the PyObject that we will return
 	PyObject *neighbours = PyDict_New();
 
-
 	// Build the hash table of voxels
 	// Caring only about the keys, not the values
-	for (int i = 0; i < num_voxels; ++i) {
+	int i;
+	for (i = 0; i < num_voxels; ++i) {
 		PyObject *key = PyList_GetItem(py_keys, i);
 		struct Coordinates c = new_coordinates_from_py_tuple(key);
 		v = new_voxel(c, i);
@@ -137,14 +157,18 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 	struct Voxel *voxel, *p;
 	for (voxel = c_voxels; voxel != NULL; voxel = voxel->hh.next) {
 
-		struct Coordinates top = voxel->coord, bot = voxel->coord, left = voxel->coord,
-			right = voxel->coord, front = voxel->coord, back = voxel->coord;
+		struct Coordinates top = voxel->coord,
+		                   bot = voxel->coord,
+		                   left = voxel->coord,
+			               right = voxel->coord,
+			               front = voxel->coord,
+			               back = voxel->coord;
 		top.z += 1; bot.z -= 1; right.x += 1; left.x -= 1; front.y += 1; back.y -= 1;
 		struct Coordinates potential_neighbours[6] = { top, bot, left, right, front, back };
 
 
 		PyObject *neighbours_list = PyList_New(0);
-		for (int k = 0; k < 6; ++k) {
+		for (unsigned k = 0; k < 6; ++k) {
 			HASH_FIND(hh, c_voxels, &(potential_neighbours[k]), sizeof(struct Coordinates), p);
 
 			if (p) {
@@ -164,62 +188,6 @@ static PyObject *neighbours_of_voxels(PyObject *self, PyObject *args) {
 	return neighbours;
 }
 
-static PyObject* labelize_voxels(PyObject *self, PyObject *args) {
-	PyObject *adjacency;
-
-	if (!PyArg_ParseTuple(args, "O", &adjacency))
-		return NULL;
-
-	size_t num_voxels = PyObject_Length(adjacency);
-	bool *visited = malloc(sizeof(bool) * num_voxels);
-
-
-	free(visited);
-	return Py_None;
-}
-
-
-static PyObject* project_to_3d(PyObject *self, PyObject *args) {
-	PyArrayObject *py_mask;
-	PyObject *py_cloud;
-	double k;
-	int code;
-
-	// Parse args from python call
-	if (!PyArg_ParseTuple(args, "OO!di", &py_cloud, &PyArray_Type, &py_mask, &k, &code))
-		return NULL;
-
-	// Get attributes from the cloud object
-	PyObject *coords_attr = PyObject_GetAttrString(py_cloud, "coords");
-	PyObject *bb_min_attr = PyObject_GetAttrString(py_cloud, "bb_min");
-	PyObject *classification_attr = PyObject_GetAttrString(py_cloud, "classification");
-
-	// Convert attributes to contiguous arrays
-	PyArrayObject *coords_array = (PyArrayObject *) PyArray_FROM_OTF(coords_attr, NPY_DOUBLE, NPY_IN_ARRAY);
-	PyArrayObject *bb_min_array = (PyArrayObject *) PyArray_FROM_OTF(bb_min_attr, NPY_DOUBLE, NPY_IN_ARRAY);
-	PyArrayObject *classification_array = (PyArrayObject *) PyArray_FROM_OTF(classification_attr, NPY_UINT8, NPY_IN_ARRAY);
-
-	// Get pointers to data from the arrays
-	unsigned num_points = (unsigned) PyArray_DIM(coords_attr, 0);
-	const double *bb_min = (double *) PyArray_DATA(bb_min_array);
-	unsigned char *classification = (unsigned char *) PyArray_DATA(classification_array);
-
-	for (unsigned i = 0; i < num_points; ++i) {
-		double x = (double) *(double*) PyArray_GETPTR2(coords_array, i, 0);
-		double y = (double) *(double*) PyArray_GETPTR2(coords_array, i, 1);
-		double z = (double) *(double*) PyArray_GETPTR2(coords_array, i, 2);
-
-		struct Coordinates c = get_voxel_coordinates(x, y, z, k, bb_min);
-		if ((int) *(unsigned char*) PyArray_GETPTR2(py_mask, c.x, c.y) == 255) {
-			classification[i] = (unsigned char) code;
-		}
-	}
-
-	PyArray_XDECREF_ERR(classification_array);
-	PyArray_XDECREF_ERR(bb_min_array);
-	PyArray_XDECREF_ERR(coords_array);
-	return Py_None;
-}
 
 //=====================================================================
 // C functions
@@ -238,10 +206,16 @@ static struct Voxel *compute_voxels(const struct PointCloud cloud, double k, con
 	unsigned int i;
 	for (i = 0; i < cloud.num_points; ++i) {
 
-		if (filter_list[(int) cloud.classification[i]] != whitelisted) {
+		if (filter_list[(uint8_t) cloud.classification[i]] != whitelisted) {
 			continue;
 		}
-		struct Coordinates c = get_voxel_coordinates(cloud.coords[(3 * i) + 0], cloud.coords[(3 * i) + 1], cloud.coords[(3 * i) + 2], k, cloud.bb_min);
+		struct Coordinates c = get_voxel_coordinates(
+		    cloud.coords[(3 * i) + 0],
+		    cloud.coords[(3 * i) + 1],
+		    cloud.coords[(3 * i) + 2],
+		    k,
+		    cloud.bb_min
+		);
 		struct Voxel v = new_voxel_stack(c, i);
 
 		HASH_FIND(hh, voxels, &(v.coord), sizeof(struct Coordinates), p);
@@ -306,9 +280,9 @@ struct Point *new_point(int index) {
 
 struct Coordinates new_coordinates_from_py_tuple(PyObject *tuple) {
 	struct Coordinates c = {
-		PyInt_AsLong(PyTuple_GetItem(tuple, 0)),
-		PyInt_AsLong(PyTuple_GetItem(tuple, 1)),
-		PyInt_AsLong(PyTuple_GetItem(tuple, 2))
+		PyLong_AsLong(PyTuple_GetItem(tuple, 0)),
+		PyLong_AsLong(PyTuple_GetItem(tuple, 1)),
+		PyLong_AsLong(PyTuple_GetItem(tuple, 2))
 	};
 	return c;
 }
@@ -324,11 +298,28 @@ PyObject *coordinates_to_py_tuple(struct Coordinates c) {
 static PyMethodDef cvoxel_methods[] = {
 	{"voxelize_cloud", (PyCFunction) voxelize_cloud, METH_VARARGS | METH_KEYWORDS, voxelize_cloud_doc},
 	{"neighbours_of_voxels", neighbours_of_voxels, METH_VARARGS, neighbours_of_voxels_doc},
-	{"project_to_3d", project_to_3d, METH_VARARGS, project_to_3d_doc},
 	{NULL, NULL, 0, NULL}
 };
+
+#if PY_MAJOR_VERSION >= 3
+
+static struct PyModuleDef cvoxels = {
+	PyModuleDef_HEAD_INIT, "cvoxels", NULL, -1, cvoxel_methods
+};
+
+PyMODINIT_FUNC PyInit_cvoxels(void) {
+	import_array();
+	return PyModule_Create(&cvoxels);
+}
+
+#else
 
 PyMODINIT_FUNC initcvoxels(void) {
 	(void) Py_InitModule("cvoxels", cvoxel_methods);
 	import_array();
 }
+
+#endif
+
+
+
