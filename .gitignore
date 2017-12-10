@@ -1,6 +1,6 @@
 .vscode/
-build/
 .vs/
+build/
 **/target/
 
 CMakeSettings.json
