@@ -5,5 +5,7 @@ build/
 
 CMakeSettings.json
 
+CyVoxels/*.c
 *.las
-*.pyd
+**/*.pyd
+**/*.pyc

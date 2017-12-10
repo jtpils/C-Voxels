@@ -16,14 +16,19 @@ def configure_module(namespace='', top_folder='', compiler_args=None):
 
     compiler_args = [] if compiler_args is None else compiler_args
 
-    c_module = Extension(name, sources=module_sources,
-                         include_dirs=[numpy.get_include()],
-                         extra_compile_args=compiler_args)
+    c_module = Extension(
+        name,
+        sources=module_sources,
+        include_dirs=[numpy.get_include()],
+        extra_compile_args=compiler_args
+    )
     return c_module
 
 
 if __name__ == '__main__':
-    setup(name=MODULE_NAME,
-          version="0.1",
-          description="Provides Voxelization function in C",
-          ext_modules=[configure_module()])
+    setup(
+        name=MODULE_NAME,
+        version="0.1",
+        description="Provides Voxelization function in C",
+        ext_modules=[configure_module()]
+    )
