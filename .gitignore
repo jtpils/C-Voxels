@@ -1,5 +1,9 @@
+.vscode/
 build/
 .vs/
+**/target/
+
 CMakeSettings.json
+
 *.las
 *.pyd

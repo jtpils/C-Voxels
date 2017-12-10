@@ -1,0 +1,12 @@
+[package]
+name = "cpython-voxels"
+version = "0.1.0"
+authors = ["Jälv <thomas.montaigu@laposte.net>"]
+
+[lib]
+name = "rust2py"
+crate-type = ["cdylib"]
+
+[dependencies.cpython]
+version = "0.1"
+features = ["extension-module"]

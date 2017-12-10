@@ -3,6 +3,7 @@
 extern crate pyo3;
 use pyo3::prelude::*;
 use std::collections::HashMap;
+use std::collections::LinkedList;
 
 #[py::modinit(rust2py)]
 fn init_mod(py: Python, m: &PyModule) -> PyResult<()> {
@@ -50,9 +51,8 @@ fn voxelize_cloud(coords: &PySequence, bb_min: &Vec<f64>, k: f64) -> HashMap<(i3
     let mut voxels = HashMap::<(i32, i32, i32), i32>::new();
     for i in 0..coords.len().unwrap() {
         let py_coords: &PyObjectRef = coords.get_item(i).unwrap();
-        let point: Vec<f64> = py_coords.extract().unwrap();
 
-        let vxl = voxel_coordinates(&point, &bb_min, k);
+        let vxl = ok(&point, &bb_min, k);
 
         let voxel = voxels.entry(vxl).or_insert(0);
         *voxel += 1;
@@ -60,6 +60,11 @@ fn voxelize_cloud(coords: &PySequence, bb_min: &Vec<f64>, k: f64) -> HashMap<(i3
     voxels
 }
 
+fn ok(point: &(f64, f64, f64), bb_min: &Vec<f64>, k: f64) -> (i32, i32, i32) {
+    (((point.0 - bb_min[0]) / k) as i32,
+     ((point.1 - bb_min[1]) / k) as i32,
+     ((point.2 - bb_min[2]) / k) as i32)
+}
 
 fn voxel_coordinates(point: &Vec<f64>, bb_min: &Vec<f64>, k: f64) -> (i32, i32, i32) {
     (((point[0] - bb_min[0]) / k) as i32,
